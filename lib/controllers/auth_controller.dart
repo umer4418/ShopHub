@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/mock_catalog.dart';
 import '../models/user.dart';
@@ -18,80 +19,124 @@ class AuthController extends GetxController {
       <ShopUser>[MockCatalog.admin, MockCatalog.demoCustomer].obs;
   final Rxn<ShopUser> _currentUser = Rxn<ShopUser>();
   final RxBool _isInitialized = false.obs;
+  final RxBool _isLoading = false.obs;
 
   List<ShopUser> get users => List.unmodifiable(_users);
   ShopUser? get currentUser => _currentUser.value;
   bool get isLoggedIn => _currentUser.value != null;
   bool get isAdmin => _currentUser.value?.isAdmin ?? false;
   bool get isInitialized => _isInitialized.value;
+  bool get isLoading => _isLoading.value;
 
   void init() {
     _users.assignAll(_authService.loadUsers());
-    final sessionEmail = _authService.loadSessionEmail();
-    if (sessionEmail != null) {
-      try {
-        _currentUser.value = _users.firstWhere(
-          (u) => u.email.toLowerCase() == sessionEmail.toLowerCase(),
-        );
-      } catch (_) {
-        _currentUser.value = null;
-      }
-    }
+    _loadInitialSession();
+    _listenToAuthChanges();
     _isInitialized.value = true;
     update();
   }
 
-  /// Attempts to log in with [email] and [password].
-  /// Returns null on success, or an error message on failure.
-  String? login(String email, String password) {
+  Future<void> _loadInitialSession() async {
     try {
-      final user = _users.firstWhere(
-        (u) =>
-            u.email.toLowerCase() == email.trim().toLowerCase() &&
-            u.password == password,
-      );
-      _currentUser.value = user;
-      _authService.saveSession(user.email);
-      update();
-      return null;
+      final user = await _authService.loadCurrentSession();
+      if (user != null) {
+        _currentUser.value = user;
+        update();
+      }
+    } catch (_) {}
+  }
+
+  void _listenToAuthChanges() {
+    try {
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+        final session = data.session;
+        if (session != null) {
+          final user = await _authService.loadCurrentSession();
+          if (user != null) {
+            _currentUser.value = user;
+            update();
+          }
+        }
+      });
     } catch (_) {
-      return 'Invalid email or password';
+      // Ignored if Supabase client is not initialized in mock/test runs
     }
   }
 
-  /// Registers a new user account.
+  /// Attempts to log in with [email] and [password].
   /// Returns null on success, or an error message on failure.
-  String? register({
+  Future<String?> login(String email, String password) async {
+    _isLoading.value = true;
+    update();
+    try {
+      final user = await _authService.signInWithEmail(
+        email: email,
+        password: password,
+      );
+      _currentUser.value = user;
+      _isLoading.value = false;
+      update();
+      return null;
+    } catch (e) {
+      _isLoading.value = false;
+      update();
+      final msg = e.toString().replaceAll('Exception:', '').trim();
+      return msg.isNotEmpty ? msg : 'Invalid email or password';
+    }
+  }
+
+  /// Registers a new user account (as Customer or Admin).
+  /// Returns null on success, or an error message on failure.
+  Future<String?> register({
     required String name,
     required String email,
     required String password,
     required String phone,
-  }) {
-    final cleanEmail = email.trim().toLowerCase();
-    final exists = _users.any((u) => u.email.toLowerCase() == cleanEmail);
-    if (exists) {
-      return 'An account with this email already exists';
-    }
-
-    final user = ShopUser(
-      name: name.trim(),
-      email: email.trim(),
-      password: password,
-      phone: phone.trim(),
-    );
-
-    _users.add(user);
-    _currentUser.value = user;
-    _authService.saveUsers(_users);
-    _authService.saveSession(user.email);
+    bool isAdmin = false,
+  }) async {
+    _isLoading.value = true;
     update();
-    return null;
+    try {
+      final user = await _authService.signUpWithEmail(
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+        isAdmin: isAdmin,
+      );
+      _users.add(user);
+      _currentUser.value = user;
+      _isLoading.value = false;
+      update();
+      return null;
+    } catch (e) {
+      _isLoading.value = false;
+      update();
+      final msg = e.toString().replaceAll('Exception:', '').trim();
+      return msg.isNotEmpty ? msg : 'Registration failed';
+    }
+  }
+
+  /// Sign in with Google OAuth via Supabase.
+  Future<String?> loginWithGoogle() async {
+    _isLoading.value = true;
+    update();
+    try {
+      await _authService.signInWithGoogle();
+      _isLoading.value = false;
+      update();
+      return null;
+    } catch (e) {
+      _isLoading.value = false;
+      update();
+      return e.toString();
+    }
   }
 
   /// Logs the current user out.
-  void logout() {
+  Future<void> logout() async {
+    await _authService.signOut();
     _currentUser.value = null;
-    _authService.saveSession(null);
     update();
   }
 

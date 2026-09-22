@@ -89,6 +89,22 @@ class ProductController extends GetxController {
     _categories.assignAll(_productService.loadCategories());
     _isInitialized.value = true;
     update();
+    _refreshFromSupabase();
+  }
+
+  Future<void> _refreshFromSupabase() async {
+    try {
+      final pList = await _productService.fetchProductsFromSupabase();
+      if (pList.isNotEmpty) {
+        _products.assignAll(pList);
+        update();
+      }
+      final cList = await _productService.fetchCategoriesFromSupabase();
+      if (cList.isNotEmpty) {
+        _categories.assignAll(cList);
+        update();
+      }
+    } catch (_) {}
   }
 
   void setSearch(String q) {
@@ -126,6 +142,7 @@ class ProductController extends GetxController {
   void addProduct(Product product) {
     _products.insert(0, product);
     _productService.saveProducts(_products);
+    _productService.syncAddProduct(product);
     update();
   }
 
@@ -134,6 +151,7 @@ class ProductController extends GetxController {
     if (i >= 0) {
       _products[i] = product;
       _productService.saveProducts(_products);
+      _productService.syncUpdateProduct(product);
       update();
     }
   }
@@ -141,12 +159,14 @@ class ProductController extends GetxController {
   void deleteProduct(String id) {
     _products.removeWhere((p) => p.id == id);
     _productService.saveProducts(_products);
+    _productService.syncDeleteProduct(id);
     update();
   }
 
   void addCategory(ShopCategory category) {
     _categories.add(category);
     _productService.saveCategories(_categories);
+    _productService.syncAddCategory(category);
     update();
   }
 
@@ -155,6 +175,7 @@ class ProductController extends GetxController {
     if (i >= 0) {
       _categories[i] = category;
       _productService.saveCategories(_categories);
+      _productService.syncUpdateCategory(category);
       update();
     }
   }
@@ -162,6 +183,7 @@ class ProductController extends GetxController {
   void deleteCategory(String id) {
     _categories.removeWhere((c) => c.id == id);
     _productService.saveCategories(_categories);
+    _productService.syncDeleteCategory(id);
     update();
   }
 }

@@ -44,29 +44,29 @@ void main() {
       expect(authCtrl.isLoggedIn, isFalse);
     });
 
-    test('login with valid credentials succeeds', () {
-      final err = authCtrl.login('customer@shophub.com', 'user123');
+    test('login with valid credentials succeeds', () async {
+      final err = await authCtrl.login('customer@shophub.com', 'user123');
       expect(err, isNull);
       expect(authCtrl.isLoggedIn, isTrue);
       expect(authCtrl.currentUser?.email, 'customer@shophub.com');
       expect(authCtrl.isAdmin, isFalse);
     });
 
-    test('login with admin credentials sets isAdmin true', () {
-      final err = authCtrl.login('admin@shophub.com', 'admin123');
+    test('login with admin credentials sets isAdmin true', () async {
+      final err = await authCtrl.login('admin@shophub.com', 'admin123');
       expect(err, isNull);
       expect(authCtrl.isLoggedIn, isTrue);
       expect(authCtrl.isAdmin, isTrue);
     });
 
-    test('login with invalid credentials fails', () {
-      final err = authCtrl.login('wrong@shophub.com', 'badpass');
+    test('login with invalid credentials fails', () async {
+      final err = await authCtrl.login('wrong@shophub.com', 'badpass');
       expect(err, isNotNull);
       expect(authCtrl.isLoggedIn, isFalse);
     });
 
-    test('register and logout', () {
-      final err = authCtrl.register(
+    test('register and logout', () async {
+      final err = await authCtrl.register(
         name: 'Jane Doe',
         email: 'jane@example.com',
         password: 'pass123',
@@ -75,10 +75,24 @@ void main() {
       expect(err, isNull);
       expect(authCtrl.isLoggedIn, isTrue);
       expect(authCtrl.currentUser?.name, 'Jane Doe');
+      expect(authCtrl.isAdmin, isFalse);
 
-      authCtrl.logout();
+      await authCtrl.logout();
       expect(authCtrl.isLoggedIn, isFalse);
       expect(authCtrl.currentUser, isNull);
+    });
+
+    test('register as admin sets isAdmin true', () async {
+      final err = await authCtrl.register(
+        name: 'Admin Joe',
+        email: 'adminjoe@example.com',
+        password: 'pass123',
+        phone: '03001234567',
+        isAdmin: true,
+      );
+      expect(err, isNull);
+      expect(authCtrl.isLoggedIn, isTrue);
+      expect(authCtrl.isAdmin, isTrue);
     });
   });
 

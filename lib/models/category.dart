@@ -16,12 +16,20 @@ class ShopCategory {
         'name': name,
         'icon': icon,
         'imageUrl': imageUrl,
+        'image_url': imageUrl,
+      };
+
+  Map<String, dynamic> toSupabaseMap() => {
+        'id': id,
+        'name': name,
+        'icon': icon,
+        'image_url': imageUrl,
       };
 
   factory ShopCategory.fromJson(Map<String, dynamic> json) => ShopCategory(
         id: json['id'] as String,
-        name: json['name'] as String,
-        icon: json['icon'] as String,
-        imageUrl: json['imageUrl'] as String,
+        name: (json['name'] as String?) ?? '',
+        icon: (json['icon'] as String?) ?? 'category',
+        imageUrl: (json['imageUrl'] ?? json['image_url'] ?? '') as String,
       );
 }

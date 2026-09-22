@@ -24,6 +24,13 @@ class OrderController extends GetxController {
     _orders.assignAll(_orderService.loadOrders());
     _isInitialized.value = true;
     update();
+
+    _orderService.fetchOrdersFromSupabase().then((remote) {
+      if (remote.isNotEmpty) {
+        _orders.assignAll(remote);
+        update();
+      }
+    });
   }
 
   ShopOrder? getOrderById(String id) {
@@ -46,6 +53,7 @@ class OrderController extends GetxController {
   }
 
   ShopOrder placeOrder({
+    String? userId,
     required String name,
     required String phone,
     required String address,
@@ -57,6 +65,7 @@ class OrderController extends GetxController {
         'SH${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
     final order = ShopOrder(
       id: id,
+      userId: userId,
       customerName: name,
       phone: phone,
       address: address,
@@ -69,6 +78,7 @@ class OrderController extends GetxController {
 
     _orders.insert(0, order);
     _orderService.saveOrders(_orders);
+    _orderService.syncPlaceOrder(order);
     update();
     return order;
   }
@@ -78,6 +88,7 @@ class OrderController extends GetxController {
     if (i >= 0) {
       _orders[i] = _orders[i].copyWith(status: status);
       _orderService.saveOrders(_orders);
+      _orderService.syncUpdateOrderStatus(id, status);
       update();
     }
   }

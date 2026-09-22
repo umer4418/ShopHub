@@ -21,12 +21,91 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   String? _error;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final authCtrl = Get.find<AuthController>();
+    final err = await authCtrl.login(
+      _email.text.trim(),
+      _password.text,
+    );
+
+    if (!mounted) return;
+
+    if (err != null) {
+      setState(() {
+        _error = err;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() => _isLoading = false);
+
+    if (authCtrl.currentUser?.isAdmin == true) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.adminDashboard,
+        (_) => false,
+      );
+    } else {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.home,
+        (_) => false,
+      );
+    }
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final authCtrl = Get.find<AuthController>();
+    final err = await authCtrl.loginWithGoogle();
+
+    if (!mounted) return;
+
+    if (err != null) {
+      setState(() {
+        _error = err;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() => _isLoading = false);
+
+    if (authCtrl.currentUser != null) {
+      if (authCtrl.currentUser!.isAdmin) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.adminDashboard,
+          (_) => false,
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.home,
+          (_) => false,
+        );
+      }
+    }
   }
 
   @override
@@ -45,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 6),
                 const Text(
-                  'Use  customer@shophub.com / user123  or  admin@shophub.com / admin123',
+                  'Use customer@shophub.com / user123 or admin@shophub.com / admin123',
                   style: TextStyle(color: ShopColors.muted),
                 ),
                 const SizedBox(height: 20),
@@ -71,23 +150,36 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 18),
                 AppButton(
                   text: 'Login',
-                  onPressed: () {
-                    if (!_form.currentState!.validate()) return;
-                    final err = Get.find<AuthController>().login(
-                          _email.text,
-                          _password.text,
-                        );
-                    if (err != null) {
-                      setState(() => _error = err);
-                      return;
-                    }
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      AppRoutes.home,
-                      (_) => false,
-                    );
-                  },
+                  isLoading: _isLoading,
+                  onPressed: _isLoading ? null : _handleLogin,
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: const [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                          color: ShopColors.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AppButton(
+                  text: 'Continue with Google',
+                  isOutlined: true,
+                  icon: Icons.g_mobiledata,
+                  isLoading: _isLoading,
+                  onPressed: _isLoading ? null : _handleGoogleLogin,
+                ),
+                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pushReplacementNamed(
                     context,

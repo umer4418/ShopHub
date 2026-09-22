@@ -425,9 +425,9 @@ class ShopStore extends ChangeNotifier {
     }
   }
 
-  String? login(String email, String password) {
+  Future<String?> login(String email, String password) async {
     if (_authCtrl != null) {
-      return _authCtrl.login(email, password);
+      return await _authCtrl.login(email, password);
     }
     try {
       final user = _standaloneUsers.firstWhere(
@@ -444,25 +444,32 @@ class ShopStore extends ChangeNotifier {
     }
   }
 
-  String? register({
+  Future<String?> register({
     required String name,
     required String email,
     required String password,
     required String phone,
-  }) {
+    bool isAdmin = false,
+  }) async {
     if (_authCtrl != null) {
-      return _authCtrl.register(
+      return await _authCtrl.register(
         name: name,
         email: email,
         password: password,
         phone: phone,
+        isAdmin: isAdmin,
       );
     }
     final exists = _standaloneUsers
         .any((u) => u.email.toLowerCase() == email.trim().toLowerCase());
     if (exists) return 'An account with this email already exists';
     final user = ShopUser(
-        name: name, email: email.trim(), password: password, phone: phone);
+      name: name,
+      email: email.trim(),
+      password: password,
+      phone: phone,
+      role: isAdmin ? 'admin' : 'customer',
+    );
     _standaloneUsers.add(user);
     _standaloneCurrentUser = user;
     _persist();
