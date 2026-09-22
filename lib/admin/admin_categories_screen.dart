@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/product_controller.dart';
@@ -12,35 +12,37 @@ class AdminCategoriesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final productCtrl = context.watch<ProductController>();
+    final productCtrl = Get.find<ProductController>();
     return Scaffold(
       appBar: AppBar(title: const Text('Manage categories')),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(context, productCtrl, null),
         child: const Icon(Icons.add),
       ),
-      body: ListView(
-        children: productCtrl.categories
-            .map(
-              (c) => ListTile(
-                title: Text(c.name),
-                subtitle: Text(c.id),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: () => _edit(context, productCtrl, c),
-                      icon: const Icon(Icons.edit_outlined),
-                    ),
-                    IconButton(
-                      onPressed: () => productCtrl.deleteCategory(c.id),
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                  ],
+      body: Obx(
+        () => ListView(
+          children: productCtrl.categories
+              .map(
+                (c) => ListTile(
+                  title: Text(c.name),
+                  subtitle: Text(c.id),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () => _edit(context, productCtrl, c),
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                      IconButton(
+                        onPressed: () => productCtrl.deleteCategory(c.id),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
     );
   }

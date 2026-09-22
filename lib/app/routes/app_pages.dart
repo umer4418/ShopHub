@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 import '../../admin/admin_categories_screen.dart';
 import '../../admin/admin_dashboard_screen.dart';
@@ -16,11 +17,70 @@ import '../../screens/wishlist_screen.dart';
 import 'app_routes.dart';
 
 /// ShopHub AppPages
-/// Maps routes defined in [AppRoutes] to their respective Widget builders.
+/// Maps routes defined in [AppRoutes] to their respective Widget builders and GetPages.
 abstract class AppPages {
   static const String initial = AppRoutes.initial;
 
-  /// Application route table
+  /// GetX Pages table
+  static final List<GetPage> pages = [
+    // Customer Pages
+    GetPage(
+      name: AppRoutes.home,
+      page: () => const HomeShell(),
+    ),
+    GetPage(
+      name: AppRoutes.products,
+      page: () => const ProductsScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.productDetail,
+      page: () => const ProductDetailScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.cart,
+      page: () => const CartScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.wishlist,
+      page: () => const WishlistScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.checkout,
+      page: () => const CheckoutScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.orderConfirmation,
+      page: () => const OrderConfirmationScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.login,
+      page: () => const LoginScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.register,
+      page: () => const RegisterScreen(),
+    ),
+
+    // Admin Pages
+    GetPage(
+      name: AppRoutes.adminDashboard,
+      page: () => const AdminDashboardScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.adminProductForm,
+      page: () => const AdminProductFormScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.adminCategories,
+      page: () => const AdminCategoriesScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.adminOrders,
+      page: () => const AdminOrdersScreen(),
+    ),
+  ];
+
+  /// Application route table for backwards compatibility
   static Map<String, WidgetBuilder> get routes => {
         // Customer Pages
         AppRoutes.home: (_) => const HomeShell(),

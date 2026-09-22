@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/cart_controller.dart';
@@ -17,17 +17,18 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final productCtrl = context.watch<ProductController>();
-    final cartCtrl = context.watch<CartController>();
-    final wishlistCtrl = context.watch<WishlistController>();
+    final productCtrl = Get.find<ProductController>();
+    final cartCtrl = Get.find<CartController>();
+    final wishlistCtrl = Get.find<WishlistController>();
 
     final width = MediaQuery.sizeOf(context).width;
     final cols = width >= 900 ? 4 : 2;
 
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(
-          pinned: true,
+    return Obx(
+      () => CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
           backgroundColor: ShopColors.primary,
           titleSpacing: 12,
           title: const Row(
@@ -171,7 +172,7 @@ class HomeScreen extends StatelessWidget {
         ),
         const SliverToBoxAdapter(child: AppFooter()),
       ],
-    );
+    ),);
   }
 }
 
@@ -252,42 +253,44 @@ class _CategoryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final productCtrl = context.watch<ProductController>();
-    return SizedBox(
-      height: 108,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        scrollDirection: Axis.horizontal,
-        itemCount: productCtrl.categories.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, i) {
-          final c = productCtrl.categories[i];
-          return InkWell(
-            onTap: () {
-              productCtrl.setFilters(categoryId: c.id);
-              Navigator.pushNamed(context, AppRoutes.products);
-            },
-            child: SizedBox(
-              width: 78,
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: ShopColors.primarySoft,
-                    child: Icon(_icon(c.icon), color: ShopColors.primary),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    c.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ],
+    final productCtrl = Get.find<ProductController>();
+    return Obx(
+      () => SizedBox(
+        height: 108,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          scrollDirection: Axis.horizontal,
+          itemCount: productCtrl.categories.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (_, i) {
+            final c = productCtrl.categories[i];
+            return InkWell(
+              onTap: () {
+                productCtrl.setFilters(categoryId: c.id);
+                Navigator.pushNamed(context, AppRoutes.products);
+              },
+              child: SizedBox(
+                width: 78,
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: ShopColors.primarySoft,
+                      child: Icon(_icon(c.icon), color: ShopColors.primary),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      c.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/cart_controller.dart';
@@ -23,7 +23,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    final cartCtrl = context.watch<CartController>();
+    final cartCtrl = Get.find<CartController>();
     final pages = [
       HomeScreen(onSeeCategories: () => setState(() => index = 1)),
       const CategoriesScreen(),
@@ -33,36 +33,38 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (i) => setState(() => index = i),
-        indicatorColor: ShopColors.primarySoft,
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.grid_view_outlined),
-            selectedIcon: Icon(Icons.grid_view),
-            label: 'Categories',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: cartCtrl.cartCount > 0,
-              label: Text('${cartCtrl.cartCount}'),
-              child: const Icon(Icons.shopping_cart_outlined),
+      bottomNavigationBar: Obx(
+        () => NavigationBar(
+          selectedIndex: index,
+          onDestinationSelected: (i) => setState(() => index = i),
+          indicatorColor: ShopColors.primarySoft,
+          destinations: [
+            const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home',
             ),
-            selectedIcon: const Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Account',
-          ),
-        ],
+            const NavigationDestination(
+              icon: Icon(Icons.grid_view_outlined),
+              selectedIcon: Icon(Icons.grid_view),
+              label: 'Categories',
+            ),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: cartCtrl.cartCount > 0,
+                label: Text('${cartCtrl.cartCount}'),
+                child: const Icon(Icons.shopping_cart_outlined),
+              ),
+              selectedIcon: const Icon(Icons.shopping_cart),
+              label: 'Cart',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Account',
+            ),
+          ],
+        ),
       ),
     );
   }

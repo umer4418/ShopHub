@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/product_controller.dart';
@@ -34,8 +34,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
     super.didChangeDependencies();
     if (_nameInitialized) return;
     _nameInitialized = true;
-    final productCtrl = context.read<ProductController>();
-    final id = ModalRoute.of(context)?.settings.arguments as String?;
+    final productCtrl = Get.find<ProductController>();
+    final id = (ModalRoute.of(context)?.settings.arguments ?? Get.arguments) as String?;
     Product? existing;
     if (id != null) {
       try {
@@ -73,7 +73,7 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final productCtrl = context.watch<ProductController>();
+    final productCtrl = Get.find<ProductController>();
     return Scaffold(
       appBar: AppBar(
         title: Text(_editingId == null ? 'Add product' : 'Edit product'),

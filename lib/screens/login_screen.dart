@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/auth_controller.dart';
@@ -73,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   text: 'Login',
                   onPressed: () {
                     if (!_form.currentState!.validate()) return;
-                    final err = context.read<AuthController>().login(
+                    final err = Get.find<AuthController>().login(
                           _email.text,
                           _password.text,
                         );

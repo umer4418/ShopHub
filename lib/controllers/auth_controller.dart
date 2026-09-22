@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
 import '../data/mock_catalog.dart';
 import '../models/user.dart';
@@ -6,36 +6,39 @@ import '../services/auth_service.dart';
 
 /// Auth Controller
 /// Manages user authentication state, active sessions, and registration.
-class AuthController extends ChangeNotifier {
+class AuthController extends GetxController {
   final AuthService _authService;
 
   AuthController({AuthService? authService})
       : _authService = authService ?? AuthService();
 
-  List<ShopUser> _users = [MockCatalog.admin, MockCatalog.demoCustomer];
-  ShopUser? _currentUser;
-  bool _isInitialized = false;
+  static AuthController get to => Get.find<AuthController>();
+
+  final RxList<ShopUser> _users =
+      <ShopUser>[MockCatalog.admin, MockCatalog.demoCustomer].obs;
+  final Rxn<ShopUser> _currentUser = Rxn<ShopUser>();
+  final RxBool _isInitialized = false.obs;
 
   List<ShopUser> get users => List.unmodifiable(_users);
-  ShopUser? get currentUser => _currentUser;
-  bool get isLoggedIn => _currentUser != null;
-  bool get isAdmin => _currentUser?.isAdmin ?? false;
-  bool get isInitialized => _isInitialized;
+  ShopUser? get currentUser => _currentUser.value;
+  bool get isLoggedIn => _currentUser.value != null;
+  bool get isAdmin => _currentUser.value?.isAdmin ?? false;
+  bool get isInitialized => _isInitialized.value;
 
   void init() {
-    _users = _authService.loadUsers();
+    _users.assignAll(_authService.loadUsers());
     final sessionEmail = _authService.loadSessionEmail();
     if (sessionEmail != null) {
       try {
-        _currentUser = _users.firstWhere(
+        _currentUser.value = _users.firstWhere(
           (u) => u.email.toLowerCase() == sessionEmail.toLowerCase(),
         );
       } catch (_) {
-        _currentUser = null;
+        _currentUser.value = null;
       }
     }
-    _isInitialized = true;
-    notifyListeners();
+    _isInitialized.value = true;
+    update();
   }
 
   /// Attempts to log in with [email] and [password].
@@ -47,9 +50,9 @@ class AuthController extends ChangeNotifier {
             u.email.toLowerCase() == email.trim().toLowerCase() &&
             u.password == password,
       );
-      _currentUser = user;
+      _currentUser.value = user;
       _authService.saveSession(user.email);
-      notifyListeners();
+      update();
       return null;
     } catch (_) {
       return 'Invalid email or password';
@@ -78,23 +81,23 @@ class AuthController extends ChangeNotifier {
     );
 
     _users.add(user);
-    _currentUser = user;
+    _currentUser.value = user;
     _authService.saveUsers(_users);
     _authService.saveSession(user.email);
-    notifyListeners();
+    update();
     return null;
   }
 
   /// Logs the current user out.
   void logout() {
-    _currentUser = null;
+    _currentUser.value = null;
     _authService.saveSession(null);
-    notifyListeners();
+    update();
   }
 
   /// For testing or direct assignment
   void setCurrentUser(ShopUser? user) {
-    _currentUser = user;
-    notifyListeners();
+    _currentUser.value = user;
+    update();
   }
 }

@@ -1,5 +1,4 @@
-import 'package:provider/provider.dart';
-import 'package:provider/single_child_widget.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../controllers/auth_controller.dart';
@@ -12,11 +11,10 @@ import '../services/cart_service.dart';
 import '../services/order_service.dart';
 import '../services/product_service.dart';
 import '../services/wishlist_service.dart';
-import '../state/shop_store.dart';
 
 /// Initial Bindings
-/// Configures and initializes all services and controllers for dependency injection.
-class InitialBindings {
+/// Configures and initializes all services and controllers for dependency injection via GetX.
+class InitialBindings extends Bindings {
   final AuthService authService;
   final ProductService productService;
   final CartService cartService;
@@ -41,6 +39,33 @@ class InitialBindings {
     required this.wishlistController,
     required this.orderController,
   });
+
+  @override
+  void dependencies() {
+    _registerDependencies(this);
+  }
+
+  static void _registerDependencies(InitialBindings b) {
+    _put<AuthService>(b.authService);
+    _put<ProductService>(b.productService);
+    _put<CartService>(b.cartService);
+    _put<WishlistService>(b.wishlistService);
+    _put<OrderService>(b.orderService);
+
+    _put<AuthController>(b.authController);
+    _put<ProductController>(b.productController);
+    _put<CartController>(b.cartController);
+    _put<WishlistController>(b.wishlistController);
+    _put<OrderController>(b.orderController);
+  }
+
+  static void _put<T>(T instance) {
+    if (Get.isRegistered<T>()) {
+      Get.replace<T>(instance);
+    } else {
+      Get.put<T>(instance, permanent: true);
+    }
+  }
 
   /// Factory that initializes SharedPreferences and loads initial data into controllers.
   static Future<InitialBindings> init([SharedPreferences? sharedPreferences]) async {
@@ -67,7 +92,7 @@ class InitialBindings {
     final wishlistController = WishlistController(wishlistService: wishlistService)..init();
     final orderController = OrderController(orderService: orderService)..init();
 
-    return InitialBindings._(
+    final bindings = InitialBindings._(
       authService: authService,
       productService: productService,
       cartService: cartService,
@@ -79,6 +104,9 @@ class InitialBindings {
       wishlistController: wishlistController,
       orderController: orderController,
     );
+
+    _registerDependencies(bindings);
+    return bindings;
   }
 
   /// Create a synchronous instance (e.g. for testing with in-memory defaults)
@@ -101,7 +129,7 @@ class InitialBindings {
     final wCtrl = wishlistController ?? WishlistController(wishlistService: wService);
     final oCtrl = orderController ?? OrderController(orderService: oService);
 
-    return InitialBindings._(
+    final bindings = InitialBindings._(
       authService: aService,
       productService: pService,
       cartService: cService,
@@ -113,37 +141,8 @@ class InitialBindings {
       wishlistController: wCtrl,
       orderController: oCtrl,
     );
-  }
 
-  /// Returns the list of providers to inject at the root of the widget tree.
-  List<SingleChildWidget> createProviders({ShopStore? store}) {
-    // Keep ShopStore for backwards compatibility with any existing components/tests
-    final shopStore = store ??
-        ShopStore(
-          authController: authController,
-          productController: productController,
-          cartController: cartController,
-          wishlistController: wishlistController,
-          orderController: orderController,
-        );
-
-    return [
-      // Services
-      Provider<AuthService>.value(value: authService),
-      Provider<ProductService>.value(value: productService),
-      Provider<CartService>.value(value: cartService),
-      Provider<WishlistService>.value(value: wishlistService),
-      Provider<OrderService>.value(value: orderService),
-
-      // Controllers
-      ChangeNotifierProvider<AuthController>.value(value: authController),
-      ChangeNotifierProvider<ProductController>.value(value: productController),
-      ChangeNotifierProvider<CartController>.value(value: cartController),
-      ChangeNotifierProvider<WishlistController>.value(value: wishlistController),
-      ChangeNotifierProvider<OrderController>.value(value: orderController),
-
-      // Backwards compatibility store
-      ChangeNotifierProvider<ShopStore>.value(value: shopStore),
-    ];
+    _registerDependencies(bindings);
+    return bindings;
   }
 }

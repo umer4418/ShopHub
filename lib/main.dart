@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/routes/app_pages.dart';
@@ -52,20 +52,18 @@ class _ShopHubAppState extends State<ShopHubApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: bindings.createProviders(store: widget.store),
-      child: MaterialApp(
-        title: 'ShopHub',
-        debugShowCheckedModeBanner: false,
+    return GetMaterialApp(
+      title: 'ShopHub',
+      debugShowCheckedModeBanner: false,
 
-        // App theme
-        theme: AppTheme.light(),
+      // App theme
+      theme: AppTheme.light(),
 
-        // Routing configured via app/routes/app_routes.dart & app_pages.dart
-        initialRoute: AppRoutes.initial,
-        routes: AppPages.routes,
-        onGenerateRoute: AppPages.onGenerateRoute,
-      ),
+      // Routing configured via app/routes/app_routes.dart & app_pages.dart
+      initialRoute: AppRoutes.initial,
+      getPages: AppPages.pages,
+      routes: AppPages.routes,
+      onGenerateRoute: AppPages.onGenerateRoute,
     );
   }
 }

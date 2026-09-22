@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/auth_controller.dart';
@@ -87,7 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   text: 'Create account',
                   onPressed: () {
                     if (!_form.currentState!.validate()) return;
-                    final err = context.read<AuthController>().register(
+                    final err = Get.find<AuthController>().register(
                           name: _name.text.trim(),
                           email: _email.text,
                           password: _password.text,

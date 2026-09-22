@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/product_controller.dart';
@@ -22,7 +22,7 @@ class _ShopSearchBarState extends State<ShopSearchBar> {
   void initState() {
     super.initState();
     _controller = TextEditingController(
-      text: context.read<ProductController>().searchQuery,
+      text: Get.find<ProductController>().searchQuery,
     );
   }
 
@@ -34,7 +34,7 @@ class _ShopSearchBarState extends State<ShopSearchBar> {
 
   @override
   Widget build(BuildContext context) {
-    final productCtrl = context.read<ProductController>();
+    final productCtrl = Get.find<ProductController>();
     return TextField(
       controller: _controller,
       autofocus: widget.autofocus,

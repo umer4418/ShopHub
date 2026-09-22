@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
 import '../data/mock_catalog.dart';
 import '../models/category.dart';
@@ -7,33 +7,35 @@ import '../services/product_service.dart';
 
 /// Product Controller
 /// Manages catalog state, filtering, search, sorting, and admin product/category CRUD.
-class ProductController extends ChangeNotifier {
+class ProductController extends GetxController {
   final ProductService _productService;
 
   ProductController({ProductService? productService})
       : _productService = productService ?? ProductService();
 
-  List<Product> _products = List.of(MockCatalog.products);
-  List<ShopCategory> _categories = List.of(MockCatalog.categories);
-  bool _isInitialized = false;
+  static ProductController get to => Get.find<ProductController>();
 
-  String _searchQuery = '';
-  String? _filterCategoryId;
-  double _minPrice = 0;
-  double _maxPrice = 200000;
-  double _minRating = 0;
-  String _sortBy = 'popular';
+  final RxList<Product> _products = List.of(MockCatalog.products).obs;
+  final RxList<ShopCategory> _categories = List.of(MockCatalog.categories).obs;
+  final RxBool _isInitialized = false.obs;
+
+  final RxString _searchQuery = ''.obs;
+  final RxnString _filterCategoryId = RxnString();
+  final RxDouble _minPrice = 0.0.obs;
+  final RxDouble _maxPrice = 200000.0.obs;
+  final RxDouble _minRating = 0.0.obs;
+  final RxString _sortBy = 'popular'.obs;
 
   List<Product> get products => List.unmodifiable(_products);
   List<ShopCategory> get categories => List.unmodifiable(_categories);
-  bool get isInitialized => _isInitialized;
+  bool get isInitialized => _isInitialized.value;
 
-  String get searchQuery => _searchQuery;
-  String? get filterCategoryId => _filterCategoryId;
-  double get minPrice => _minPrice;
-  double get maxPrice => _maxPrice;
-  double get minRating => _minRating;
-  String get sortBy => _sortBy;
+  String get searchQuery => _searchQuery.value;
+  String? get filterCategoryId => _filterCategoryId.value;
+  double get minPrice => _minPrice.value;
+  double get maxPrice => _maxPrice.value;
+  double get minRating => _minRating.value;
+  String get sortBy => _sortBy.value;
 
   List<Product> get featured => _products.where((p) => p.featured).toList();
   List<Product> get popular => _products.where((p) => p.popular).toList();
@@ -56,18 +58,18 @@ class ProductController extends ChangeNotifier {
 
   List<Product> get filteredProducts {
     var list = _products.where((p) {
-      final q = _searchQuery.trim().toLowerCase();
+      final q = _searchQuery.value.trim().toLowerCase();
       final matchesQuery = q.isEmpty ||
           p.name.toLowerCase().contains(q) ||
           p.shortDescription.toLowerCase().contains(q);
       final matchesCat =
-          _filterCategoryId == null || p.categoryId == _filterCategoryId;
-      final matchesPrice = p.price >= _minPrice && p.price <= _maxPrice;
-      final matchesRating = p.rating >= _minRating;
+          _filterCategoryId.value == null || p.categoryId == _filterCategoryId.value;
+      final matchesPrice = p.price >= _minPrice.value && p.price <= _maxPrice.value;
+      final matchesRating = p.rating >= _minRating.value;
       return matchesQuery && matchesCat && matchesPrice && matchesRating;
     }).toList();
 
-    switch (_sortBy) {
+    switch (_sortBy.value) {
       case 'price_low':
         list.sort((a, b) => a.price.compareTo(b.price));
       case 'price_high':
@@ -83,15 +85,15 @@ class ProductController extends ChangeNotifier {
   }
 
   void init() {
-    _products = _productService.loadProducts();
-    _categories = _productService.loadCategories();
-    _isInitialized = true;
-    notifyListeners();
+    _products.assignAll(_productService.loadProducts());
+    _categories.assignAll(_productService.loadCategories());
+    _isInitialized.value = true;
+    update();
   }
 
   void setSearch(String q) {
-    _searchQuery = q;
-    notifyListeners();
+    _searchQuery.value = q;
+    update();
   }
 
   void setFilters({
@@ -102,29 +104,29 @@ class ProductController extends ChangeNotifier {
     double? rating,
     String? sort,
   }) {
-    if (clearCategory) _filterCategoryId = null;
-    if (categoryId != null) _filterCategoryId = categoryId;
-    if (min != null) _minPrice = min;
-    if (max != null) _maxPrice = max;
-    if (rating != null) _minRating = rating;
-    if (sort != null) _sortBy = sort;
-    notifyListeners();
+    if (clearCategory) _filterCategoryId.value = null;
+    if (categoryId != null) _filterCategoryId.value = categoryId;
+    if (min != null) _minPrice.value = min;
+    if (max != null) _maxPrice.value = max;
+    if (rating != null) _minRating.value = rating;
+    if (sort != null) _sortBy.value = sort;
+    update();
   }
 
   void resetFilters() {
-    _searchQuery = '';
-    _filterCategoryId = null;
-    _minPrice = 0;
-    _maxPrice = 200000;
-    _minRating = 0;
-    _sortBy = 'popular';
-    notifyListeners();
+    _searchQuery.value = '';
+    _filterCategoryId.value = null;
+    _minPrice.value = 0;
+    _maxPrice.value = 200000;
+    _minRating.value = 0;
+    _sortBy.value = 'popular';
+    update();
   }
 
   void addProduct(Product product) {
     _products.insert(0, product);
     _productService.saveProducts(_products);
-    notifyListeners();
+    update();
   }
 
   void updateProduct(Product product) {
@@ -132,20 +134,20 @@ class ProductController extends ChangeNotifier {
     if (i >= 0) {
       _products[i] = product;
       _productService.saveProducts(_products);
-      notifyListeners();
+      update();
     }
   }
 
   void deleteProduct(String id) {
     _products.removeWhere((p) => p.id == id);
     _productService.saveProducts(_products);
-    notifyListeners();
+    update();
   }
 
   void addCategory(ShopCategory category) {
     _categories.add(category);
     _productService.saveCategories(_categories);
-    notifyListeners();
+    update();
   }
 
   void updateCategory(ShopCategory category) {
@@ -153,13 +155,13 @@ class ProductController extends ChangeNotifier {
     if (i >= 0) {
       _categories[i] = category;
       _productService.saveCategories(_categories);
-      notifyListeners();
+      update();
     }
   }
 
   void deleteCategory(String id) {
     _categories.removeWhere((c) => c.id == id);
     _productService.saveCategories(_categories);
-    notifyListeners();
+    update();
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
 import '../controllers/product_controller.dart';
@@ -15,72 +15,75 @@ class ProductsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final productCtrl = context.watch<ProductController>();
-    final wishlistCtrl = context.watch<WishlistController>();
-    final items = productCtrl.filteredProducts;
-    final cat = productCtrl.filterCategoryId == null
-        ? null
-        : productCtrl.categoryById(productCtrl.filterCategoryId!);
+    final productCtrl = Get.find<ProductController>();
+    final wishlistCtrl = Get.find<WishlistController>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(cat?.name ??
-            (productCtrl.searchQuery.isEmpty ? 'All Products' : productCtrl.searchQuery)),
-        actions: [
-          IconButton(
-            tooltip: 'Filters',
-            onPressed: () => _openFilters(context, productCtrl),
-            icon: const Icon(Icons.tune),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                Text('${items.length} items',
-                    style: const TextStyle(color: ShopColors.muted)),
-                const Spacer(),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: productCtrl.sortBy,
-                    items: const [
-                      DropdownMenuItem(value: 'popular', child: Text('Popular')),
-                      DropdownMenuItem(value: 'price_low', child: Text('Price: Low')),
-                      DropdownMenuItem(value: 'price_high', child: Text('Price: High')),
-                      DropdownMenuItem(value: 'rating', child: Text('Top rated')),
-                      DropdownMenuItem(value: 'discount', child: Text('Best discount')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) productCtrl.setFilters(sort: v);
-                    },
-                  ),
-                ),
-              ],
+    return Obx(() {
+      final items = productCtrl.filteredProducts;
+      final cat = productCtrl.filterCategoryId == null
+          ? null
+          : productCtrl.categoryById(productCtrl.filterCategoryId!);
+
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(cat?.name ??
+              (productCtrl.searchQuery.isEmpty ? 'All Products' : productCtrl.searchQuery)),
+          actions: [
+            IconButton(
+              tooltip: 'Filters',
+              onPressed: () => _openFilters(context, productCtrl),
+              icon: const Icon(Icons.tune),
             ),
-          ),
-          Expanded(
-            child: items.isEmpty
-                ? const Center(child: Text('No products match your filters.'))
-                : GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.62,
+          ],
+        ),
+        body: Column(
+          children: [
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                children: [
+                  Text('${items.length} items',
+                      style: const TextStyle(color: ShopColors.muted)),
+                  const Spacer(),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: productCtrl.sortBy,
+                      items: const [
+                        DropdownMenuItem(value: 'popular', child: Text('Popular')),
+                        DropdownMenuItem(value: 'price_low', child: Text('Price: Low')),
+                        DropdownMenuItem(value: 'price_high', child: Text('Price: High')),
+                        DropdownMenuItem(value: 'rating', child: Text('Top rated')),
+                        DropdownMenuItem(value: 'discount', child: Text('Best discount')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) productCtrl.setFilters(sort: v);
+                      },
                     ),
-                    itemCount: items.length,
-                    itemBuilder: (_, i) =>
-                        _card(context, productCtrl, wishlistCtrl, items[i]),
                   ),
-          ),
-        ],
-      ),
-    );
+                ],
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? const Center(child: Text('No products match your filters.'))
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.62,
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (_, i) =>
+                          _card(context, productCtrl, wishlistCtrl, items[i]),
+                    ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _card(

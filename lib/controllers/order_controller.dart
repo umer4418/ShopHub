@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
 import '../models/cart_item.dart';
 import '../models/order.dart';
@@ -6,22 +6,24 @@ import '../services/order_service.dart';
 
 /// Order Controller
 /// Manages checkout processing, order placement, order tracking, and status updates.
-class OrderController extends ChangeNotifier {
+class OrderController extends GetxController {
   final OrderService _orderService;
 
   OrderController({OrderService? orderService})
       : _orderService = orderService ?? OrderService();
 
-  List<ShopOrder> _orders = [];
-  bool _isInitialized = false;
+  static OrderController get to => Get.find<OrderController>();
+
+  final RxList<ShopOrder> _orders = <ShopOrder>[].obs;
+  final RxBool _isInitialized = false.obs;
 
   List<ShopOrder> get orders => List.unmodifiable(_orders);
-  bool get isInitialized => _isInitialized;
+  bool get isInitialized => _isInitialized.value;
 
   void init() {
-    _orders = _orderService.loadOrders();
-    _isInitialized = true;
-    notifyListeners();
+    _orders.assignAll(_orderService.loadOrders());
+    _isInitialized.value = true;
+    update();
   }
 
   ShopOrder? getOrderById(String id) {
@@ -67,7 +69,7 @@ class OrderController extends ChangeNotifier {
 
     _orders.insert(0, order);
     _orderService.saveOrders(_orders);
-    notifyListeners();
+    update();
     return order;
   }
 
@@ -76,7 +78,7 @@ class OrderController extends ChangeNotifier {
     if (i >= 0) {
       _orders[i] = _orders[i].copyWith(status: status);
       _orderService.saveOrders(_orders);
-      notifyListeners();
+      update();
     }
   }
 }
