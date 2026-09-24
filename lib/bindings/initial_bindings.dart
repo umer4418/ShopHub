@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../controllers/auth_controller.dart';
 import '../controllers/cart_controller.dart';
+import '../controllers/coupon_controller.dart';
 import '../controllers/order_controller.dart';
 import '../controllers/product_controller.dart';
 import '../controllers/wishlist_controller.dart';
@@ -30,6 +31,7 @@ class InitialBindings extends Bindings {
   final WishlistController wishlistController;
   final OrderController orderController;
   final ChatbotController chatbotController;
+  final CouponController couponController;
 
   InitialBindings._({
     required this.authService,
@@ -44,6 +46,7 @@ class InitialBindings extends Bindings {
     required this.wishlistController,
     required this.orderController,
     required this.chatbotController,
+    required this.couponController,
   });
 
   @override
@@ -65,6 +68,7 @@ class InitialBindings extends Bindings {
     _put<WishlistController>(b.wishlistController);
     _put<OrderController>(b.orderController);
     _put<ChatbotController>(b.chatbotController);
+    _put<CouponController>(b.couponController);
   }
 
   static void _put<T>(T instance) {
@@ -103,6 +107,7 @@ class InitialBindings extends Bindings {
     final wishlistController = WishlistController(wishlistService: wishlistService)..init();
     final orderController = OrderController(orderService: orderService)..init();
     final chatbotController = ChatbotController(service: chatbotService)..init();
+    final couponController = CouponController()..init(prefs);
 
     final bindings = InitialBindings._(
       authService: authService,
@@ -117,6 +122,7 @@ class InitialBindings extends Bindings {
       wishlistController: wishlistController,
       orderController: orderController,
       chatbotController: chatbotController,
+      couponController: couponController,
     );
 
     _registerDependencies(bindings);
@@ -131,6 +137,7 @@ class InitialBindings extends Bindings {
     WishlistController? wishlistController,
     OrderController? orderController,
     ChatbotController? chatbotController,
+    CouponController? couponController,
   }) {
     final aService = AuthService();
     final pService = ProductService();
@@ -145,6 +152,7 @@ class InitialBindings extends Bindings {
     final wCtrl = wishlistController ?? WishlistController(wishlistService: wService);
     final oCtrl = orderController ?? OrderController(orderService: oService);
     final cbCtrl = chatbotController ?? ChatbotController(service: cbService);
+    final cpCtrl = couponController ?? (CouponController()..init());
 
     final bindings = InitialBindings._(
       authService: aService,
@@ -159,6 +167,7 @@ class InitialBindings extends Bindings {
       wishlistController: wCtrl,
       orderController: oCtrl,
       chatbotController: cbCtrl,
+      couponController: cpCtrl,
     );
 
     _registerDependencies(bindings);

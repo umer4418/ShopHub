@@ -17,6 +17,7 @@ abstract class AppRoutes {
 
   // Admin Routes
   static const String adminDashboard = '/admin';
+  static const String adminLogin = '/admin/login';
   static const String adminProductForm = '/admin/product';
   static const String adminCategories = '/admin/categories';
   static const String adminOrders = '/admin/orders';

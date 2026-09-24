@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../admin/admin_categories_screen.dart';
-import '../../admin/admin_dashboard_screen.dart';
+import '../../admin/admin_login_screen.dart';
 import '../../admin/admin_orders_screen.dart';
+import '../../admin/admin_portal_screen.dart';
 import '../../admin/admin_product_form_screen.dart';
 import '../../screens/cart_screen.dart';
 import '../../screens/checkout_screen.dart';
@@ -69,7 +70,11 @@ abstract class AppPages {
     // Admin Pages
     GetPage(
       name: AppRoutes.adminDashboard,
-      page: () => const AdminDashboardScreen(),
+      page: () => const AdminPortalScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.adminLogin,
+      page: () => const AdminLoginScreen(),
     ),
     GetPage(
       name: AppRoutes.adminProductForm,
@@ -100,7 +105,8 @@ abstract class AppPages {
         AppRoutes.chatbot: (_) => const ChatbotScreen(),
 
         // Admin Pages
-        AppRoutes.adminDashboard: (_) => const AdminDashboardScreen(),
+        AppRoutes.adminDashboard: (_) => const AdminPortalScreen(),
+        AppRoutes.adminLogin: (_) => const AdminLoginScreen(),
         AppRoutes.adminProductForm: (_) => const AdminProductFormScreen(),
         AppRoutes.adminCategories: (_) => const AdminCategoriesScreen(),
         AppRoutes.adminOrders: (_) => const AdminOrdersScreen(),
