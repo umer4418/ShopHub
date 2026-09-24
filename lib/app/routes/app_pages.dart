@@ -14,6 +14,7 @@ import '../../screens/product_detail_screen.dart';
 import '../../screens/products_screen.dart';
 import '../../screens/register_screen.dart';
 import '../../screens/wishlist_screen.dart';
+import '../../screens/chatbot_screen.dart';
 import 'app_routes.dart';
 
 /// ShopHub AppPages
@@ -60,6 +61,10 @@ abstract class AppPages {
       name: AppRoutes.register,
       page: () => const RegisterScreen(),
     ),
+    GetPage(
+      name: AppRoutes.chatbot,
+      page: () => const ChatbotScreen(),
+    ),
 
     // Admin Pages
     GetPage(
@@ -92,6 +97,7 @@ abstract class AppPages {
         AppRoutes.orderConfirmation: (_) => const OrderConfirmationScreen(),
         AppRoutes.login: (_) => const LoginScreen(),
         AppRoutes.register: (_) => const RegisterScreen(),
+        AppRoutes.chatbot: (_) => const ChatbotScreen(),
 
         // Admin Pages
         AppRoutes.adminDashboard: (_) => const AdminDashboardScreen(),

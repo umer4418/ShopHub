@@ -41,9 +41,19 @@ class ProductService {
     if (pJson != null) {
       try {
         final decoded = jsonDecode(pJson) as List;
-        return decoded
+        final list = decoded
             .map((e) => Product.fromJson(e as Map<String, dynamic>))
             .toList();
+
+        // If local storage has fewer products than MockCatalog, merge with MockCatalog
+        if (list.length < MockCatalog.products.length) {
+          final existingIds = list.map((p) => p.id).toSet();
+          return [
+            ...list,
+            ...MockCatalog.products.where((p) => !existingIds.contains(p.id)),
+          ];
+        }
+        return list;
       } catch (_) {
         return List.of(MockCatalog.products);
       }
@@ -84,8 +94,14 @@ class ProductService {
           .toList();
 
       if (list.isNotEmpty) {
-        await saveProducts(list);
-        return list;
+        // Merge Supabase products with MockCatalog so the catalog has the full 30 products
+        final existingIds = list.map((p) => p.id).toSet();
+        final combined = [
+          ...list,
+          ...MockCatalog.products.where((p) => !existingIds.contains(p.id)),
+        ];
+        await saveProducts(combined);
+        return combined;
       }
     } catch (e) {
       debugPrint('Supabase products fetch error: $e');

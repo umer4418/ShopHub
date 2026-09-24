@@ -6,6 +6,7 @@ import '../controllers/cart_controller.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
 import '../widgets/quantity_stepper.dart';
+import '../widgets/shop_product_image.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
@@ -58,19 +59,14 @@ class CartScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        ClipRRect(
+                        ShopProductImage(
+                          imageUrl: item.product.imageUrl,
+                          categoryId: item.product.categoryId,
+                          productName: item.product.name,
+                          width: 78,
+                          height: 78,
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            item.product.imageUrl,
-                            width: 78,
-                            height: 78,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const SizedBox(
-                              width: 78,
-                              height: 78,
-                              child: ColoredBox(color: ShopColors.primarySoft),
-                            ),
-                          ),
+                          fit: BoxFit.cover,
                         ),
                         const SizedBox(width: 10),
                         Expanded(

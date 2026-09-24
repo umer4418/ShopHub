@@ -27,13 +27,15 @@ serve(async (req: Request) => {
     }
 
     // 3. Parse Request Payload
-    const body = await req.json()
     const {
       amount,
       currency = 'pkr',
       customerName = '',
       customerEmail = '',
       orderId = '',
+      paymentMethod = '',
+      confirm = false,
+      returnUrl = 'https://shophub.com/checkout',
       metadata = {},
     } = body
 
@@ -47,11 +49,19 @@ serve(async (req: Request) => {
     // Convert amount to smallest currency unit (cents / paisas: $10.00 -> 1000)
     const amountInSmallestUnit = Math.round(Number(amount) * 100)
 
-    // 4. Create PaymentIntent via Stripe API directly (compatible across all Deno versions)
+    // 4. Create / Confirm PaymentIntent via Stripe API directly
     const form = new URLSearchParams()
     form.append('amount', amountInSmallestUnit.toString())
     form.append('currency', currency.toLowerCase())
-    form.append('payment_method_types[]', 'card')
+    if (paymentMethod) {
+      form.append('payment_method', paymentMethod)
+      if (confirm) {
+        form.append('confirm', 'true')
+        form.append('return_url', returnUrl)
+      }
+    } else {
+      form.append('payment_method_types[]', 'card')
+    }
     form.append('description', `ShopHub Order ${orderId}`.trim())
     if (customerEmail) {
       form.append('receipt_email', customerEmail)

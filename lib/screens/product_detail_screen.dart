@@ -8,6 +8,7 @@ import '../controllers/wishlist_controller.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
 import '../widgets/quantity_stepper.dart';
+import '../widgets/shop_product_image.dart';
 import '../widgets/star_rating.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -40,8 +41,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           title: const Text('Product details'),
           actions: [
             IconButton(
-              onPressed: () => wishlistCtrl.toggleWishlist(product.id),
-              icon: Icon(wished ? Icons.favorite : Icons.favorite_border),
+              tooltip: wished ? 'Remove from wishlist' : 'Add to wishlist',
+              onPressed: () {
+                wishlistCtrl.toggleWishlist(product.id);
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    duration: const Duration(seconds: 1),
+                    content: Text(
+                      wishlistCtrl.inWishlist(product.id)
+                          ? 'Added to wishlist'
+                          : 'Removed from wishlist',
+                    ),
+                  ),
+                );
+              },
+              icon: Icon(
+                wished ? Icons.favorite : Icons.favorite_border,
+                color: wished ? Colors.red : null,
+              ),
             ),
             IconButton(
               onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
@@ -57,13 +75,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             AspectRatio(
               aspectRatio: 1.05,
-              child: Image.network(
-                product.imageUrl,
+              child: ShopProductImage(
+                imageUrl: product.imageUrl,
+                categoryId: product.categoryId,
+                productName: product.name,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const ColoredBox(
-                  color: ShopColors.primarySoft,
-                  child: Icon(Icons.image_outlined, size: 64, color: ShopColors.primary),
-                ),
               ),
             ),
             Padding(

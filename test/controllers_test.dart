@@ -6,6 +6,7 @@ import 'package:shophub/controllers/cart_controller.dart';
 import 'package:shophub/controllers/order_controller.dart';
 import 'package:shophub/controllers/product_controller.dart';
 import 'package:shophub/controllers/wishlist_controller.dart';
+import 'package:shophub/data/mock_catalog.dart';
 import 'package:shophub/models/cart_item.dart';
 import 'package:shophub/models/category.dart';
 import 'package:shophub/models/order.dart';
@@ -24,6 +25,7 @@ void main() {
       expect(routes.containsKey(AppRoutes.orderConfirmation), isTrue);
       expect(routes.containsKey(AppRoutes.login), isTrue);
       expect(routes.containsKey(AppRoutes.register), isTrue);
+      expect(routes.containsKey(AppRoutes.chatbot), isTrue);
       expect(routes.containsKey(AppRoutes.adminDashboard), isTrue);
       expect(routes.containsKey(AppRoutes.adminProductForm), isTrue);
       expect(routes.containsKey(AppRoutes.adminCategories), isTrue);
@@ -105,9 +107,25 @@ void main() {
 
     test('loads products and categories', () {
       expect(productCtrl.products.isNotEmpty, isTrue);
+      expect(productCtrl.products.length, greaterThanOrEqualTo(30));
+      expect(MockCatalog.products.length, 30);
       expect(productCtrl.categories.isNotEmpty, isTrue);
       expect(productCtrl.featured.isNotEmpty, isTrue);
       expect(productCtrl.popular.isNotEmpty, isTrue);
+    });
+
+    test('resolves legacy and missing image URLs to valid web images', () {
+      // Legacy asset paths from earlier seed data are mapped to real Unsplash images
+      final legacyResolved = Product.resolveImageUrl('assets/images/products/headphones.png');
+      expect(legacyResolved.startsWith('https://'), isTrue);
+
+      // Empty or null image URLs fall back gracefully to a high-res image
+      final fallbackResolved = Product.resolveImageUrl('', categoryId: 'electronics');
+      expect(fallbackResolved.startsWith('https://'), isTrue);
+
+      // Existing valid CDN URLs remain intact
+      const validCdn = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e';
+      expect(Product.resolveImageUrl(validCdn), validCdn);
     });
 
     test('search filters product list', () {

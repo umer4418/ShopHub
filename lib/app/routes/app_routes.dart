@@ -13,6 +13,7 @@ abstract class AppRoutes {
   static const String orderConfirmation = '/order';
   static const String login = '/login';
   static const String register = '/register';
+  static const String chatbot = '/chatbot';
 
   // Admin Routes
   static const String adminDashboard = '/admin';

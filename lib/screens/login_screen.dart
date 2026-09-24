@@ -21,7 +21,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   String? _error;
-  bool _isLoading = false;
+  bool _isLoggingIn = false;
+  bool _isGoogleLoggingIn = false;
+
+  bool get _isLoading => _isLoggingIn || _isGoogleLoggingIn;
 
   @override
   void dispose() {
@@ -33,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_form.currentState!.validate()) return;
     setState(() {
-      _isLoading = true;
+      _isLoggingIn = true;
       _error = null;
     });
 
@@ -48,12 +51,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (err != null) {
       setState(() {
         _error = err;
-        _isLoading = false;
+        _isLoggingIn = false;
       });
       return;
     }
 
-    setState(() => _isLoading = false);
+    setState(() => _isLoggingIn = false);
 
     if (authCtrl.currentUser?.isAdmin == true) {
       Navigator.pushNamedAndRemoveUntil(
@@ -72,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleGoogleLogin() async {
     setState(() {
-      _isLoading = true;
+      _isGoogleLoggingIn = true;
       _error = null;
     });
 
@@ -84,12 +87,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (err != null) {
       setState(() {
         _error = err;
-        _isLoading = false;
+        _isGoogleLoggingIn = false;
       });
       return;
     }
 
-    setState(() => _isLoading = false);
+    setState(() => _isGoogleLoggingIn = false);
 
     if (authCtrl.currentUser != null) {
       if (authCtrl.currentUser!.isAdmin) {
@@ -108,6 +111,105 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _handleForgotPassword() {
+    final resetEmailCtrl = TextEditingController(text: _email.text.trim());
+    final formKey = GlobalKey<FormState>();
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset, color: ShopColors.primary),
+              SizedBox(width: 8),
+              Text(
+                'Reset Password',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Enter your registered ShopHub email address and we will send you a password recovery link.',
+                  style: TextStyle(fontSize: 13, color: ShopColors.muted),
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: resetEmailCtrl,
+                  labelText: 'Email Address',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) =>
+                      (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSending ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ShopColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => isSending = true);
+                      final email = resetEmailCtrl.text.trim();
+                      final authCtrl = Get.find<AuthController>();
+                      final err = await authCtrl.sendPasswordResetEmail(email);
+
+                      if (!ctx.mounted || !mounted) return;
+                      Navigator.pop(ctx);
+
+                      if (err != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(err),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Password reset link sent to $email. Please check your inbox.',
+                            ),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    },
+              child: isSending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('Send Reset Link'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,12 +222,21 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Text('Welcome back',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                const Text(
+                  'ShopHub',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: ShopColors.text,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Use customer@shophub.com / user123 or admin@shophub.com / admin123',
-                  style: TextStyle(color: ShopColors.muted),
+                  'Welcome back to ShopHub',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: ShopColors.muted,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 AppTextField(
@@ -143,14 +254,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (v) =>
                       (v == null || v.length < 4) ? 'Enter your password' : null,
                 ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _isLoading ? null : _handleForgotPassword,
+                    child: const Text(
+                      'Forgot Password?',
+                      style: TextStyle(
+                        color: ShopColors.primary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
                 if (_error != null) ...[
                   const SizedBox(height: 10),
                   Text(_error!, style: const TextStyle(color: Colors.red)),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
                 AppButton(
                   text: 'Login',
-                  isLoading: _isLoading,
+                  isLoading: _isLoggingIn,
                   onPressed: _isLoading ? null : _handleLogin,
                 ),
                 const SizedBox(height: 16),
@@ -176,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   text: 'Continue with Google',
                   isOutlined: true,
                   icon: Icons.g_mobiledata,
-                  isLoading: _isLoading,
+                  isLoading: _isGoogleLoggingIn,
                   onPressed: _isLoading ? null : _handleGoogleLogin,
                 ),
                 const SizedBox(height: 8),

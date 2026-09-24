@@ -30,6 +30,15 @@ class ProductsScreen extends StatelessWidget {
               (productCtrl.searchQuery.isEmpty ? 'All Products' : productCtrl.searchQuery)),
           actions: [
             IconButton(
+              tooltip: 'Wishlist',
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.wishlist),
+              icon: Badge(
+                isLabelVisible: wishlistCtrl.count > 0,
+                label: Text('${wishlistCtrl.count}'),
+                child: const Icon(Icons.favorite_border),
+              ),
+            ),
+            IconButton(
               tooltip: 'Filters',
               onPressed: () => _openFilters(context, productCtrl),
               icon: const Icon(Icons.tune),

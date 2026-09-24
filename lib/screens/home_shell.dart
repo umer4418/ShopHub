@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../app/routes/app_routes.dart';
 import '../controllers/cart_controller.dart';
 import '../theme/colors.dart';
+import '../widgets/shop_bot_fab.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
 import 'home_screen.dart';
@@ -33,6 +34,7 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
+      floatingActionButton: index == 0 ? const ShopBotFab() : null,
       bottomNavigationBar: Obx(
         () => NavigationBar(
           selectedIndex: index,

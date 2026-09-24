@@ -148,6 +148,9 @@ class AuthService {
       await saveSession(cleanEmail);
       return profileUser;
     } on AuthException catch (e) {
+      if (e.message.toLowerCase().contains('email not confirmed')) {
+        throw 'Email is not confirmed. Please disable "Confirm email" in Supabase Dashboard (Authentication -> Providers -> Email).';
+      }
       throw e.message;
     } catch (e) {
       // Check local cache/mock users
@@ -220,6 +223,21 @@ class AuthService {
       await _supabase.auth.signOut();
     } catch (_) {}
     await saveSession(null);
+  }
+
+  /// Sends a password reset email via Supabase Auth or local mock.
+  Future<void> sendPasswordResetEmail(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    try {
+      await _supabase.auth.resetPasswordForEmail(
+        cleanEmail,
+        redirectTo: kIsWeb ? null : 'io.supabase.shophub://reset-callback/',
+      );
+    } on AuthException catch (e) {
+      throw e.message;
+    } catch (_) {
+      // Offline / mock mode succeeds gracefully
+    }
   }
 
   // --------------------------------------------------------------------------

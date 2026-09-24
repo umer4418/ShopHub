@@ -43,6 +43,21 @@ class HomeScreen extends StatelessWidget {
           ),
           actions: [
             IconButton(
+              tooltip: 'Wishlist',
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.wishlist),
+              icon: Badge(
+                isLabelVisible: wishlistCtrl.count > 0,
+                label: Text('${wishlistCtrl.count}'),
+                child: const Icon(Icons.favorite_border, color: Colors.white),
+              ),
+            ),
+            IconButton(
+              tooltip: 'ShopBot AI Support',
+              onPressed: () => Navigator.pushNamed(context, AppRoutes.chatbot),
+              icon: const Icon(Icons.smart_toy_outlined, color: Colors.white),
+            ),
+            IconButton(
+              tooltip: 'Cart',
               onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
               icon: Badge(
                 isLabelVisible: cartCtrl.cartCount > 0,

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import '../controllers/wishlist_controller.dart';
 import '../models/product.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import 'shop_product_image.dart';
 import 'star_rating.dart';
 
 class ProductCard extends StatelessWidget {
@@ -10,14 +13,14 @@ class ProductCard extends StatelessWidget {
     super.key,
     required this.product,
     required this.onTap,
-    required this.wished,
-    required this.onWish,
+    this.wished,
+    this.onWish,
   });
 
   final Product product;
   final VoidCallback onTap;
-  final bool wished;
-  final VoidCallback onWish;
+  final bool? wished;
+  final VoidCallback? onWish;
 
   @override
   Widget build(BuildContext context) {
@@ -45,13 +48,11 @@ class ProductCard extends StatelessWidget {
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                     child: SizedBox.expand(
-                      child: Image.network(
-                        product.imageUrl,
+                      child: ShopProductImage(
+                        imageUrl: product.imageUrl,
+                        categoryId: product.categoryId,
+                        productName: product.name,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const ColoredBox(
-                          color: ShopColors.primarySoft,
-                          child: Icon(Icons.image_outlined, color: ShopColors.primary),
-                        ),
                       ),
                     ),
                   ),
@@ -78,15 +79,7 @@ class ProductCard extends StatelessWidget {
                   Positioned(
                     right: 6,
                     top: 6,
-                    child: IconButton.filledTonal(
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: wished ? ShopColors.primary : ShopColors.muted,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: onWish,
-                      icon: Icon(wished ? Icons.favorite : Icons.favorite_border),
-                    ),
+                    child: _buildWishButton(),
                   ),
                 ],
               ),
@@ -127,6 +120,47 @@ class ProductCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildWishButton() {
+    if (Get.isRegistered<WishlistController>()) {
+      final wishlistCtrl = Get.find<WishlistController>();
+      return Obx(() {
+        final isWished = wishlistCtrl.inWishlist(product.id);
+        return IconButton.filledTonal(
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: isWished ? Colors.red : ShopColors.muted,
+            visualDensity: VisualDensity.compact,
+          ),
+          onPressed: () {
+            if (onWish != null) {
+              onWish!();
+            } else {
+              wishlistCtrl.toggleWishlist(product.id);
+            }
+          },
+          icon: Icon(
+            isWished ? Icons.favorite : Icons.favorite_border,
+            color: isWished ? Colors.red : ShopColors.muted,
+          ),
+        );
+      });
+    }
+
+    final isWished = wished ?? false;
+    return IconButton.filledTonal(
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: isWished ? Colors.red : ShopColors.muted,
+        visualDensity: VisualDensity.compact,
+      ),
+      onPressed: onWish,
+      icon: Icon(
+        isWished ? Icons.favorite : Icons.favorite_border,
+        color: isWished ? Colors.red : ShopColors.muted,
       ),
     );
   }

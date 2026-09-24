@@ -140,6 +140,18 @@ class AuthController extends GetxController {
     update();
   }
 
+  /// Sends a password reset email to [email].
+  /// Returns null on success or an error message on failure.
+  Future<String?> sendPasswordResetEmail(String email) async {
+    try {
+      await _authService.sendPasswordResetEmail(email);
+      return null;
+    } catch (e) {
+      final msg = e.toString().replaceAll('Exception:', '').trim();
+      return msg.isNotEmpty ? msg : 'Failed to send password reset email';
+    }
+  }
+
   /// For testing or direct assignment
   void setCurrentUser(ShopUser? user) {
     _currentUser.value = user;
