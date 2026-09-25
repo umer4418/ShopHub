@@ -1,14 +1,17 @@
-import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/coupon.dart';
+import '../services/coupon_service.dart';
 
 /// Coupon Controller
-/// Manages promotional discount codes, coupon creation, activation, and validation.
+/// Manages promotional discount codes, coupon creation, activation, validation,
+/// and bidirectional synchronization with Supabase Postgres.
 class CouponController extends GetxController {
-  static const _kCouponsKey = 'shophub.coupons';
-  SharedPreferences? _prefs;
+  final CouponService _couponService;
+
+  CouponController({CouponService? couponService})
+      : _couponService = couponService ?? CouponService();
 
   static CouponController get to => Get.find<CouponController>();
 
@@ -20,31 +23,41 @@ class CouponController extends GetxController {
   int get activeCouponsCount => _coupons.where((c) => c.isValid).length;
 
   void init([SharedPreferences? prefs]) {
-    _prefs = prefs;
-    _loadCoupons();
+    _couponService.init(prefs).then((_) {
+      _loadCoupons();
+      _isInitialized.value = true;
+      update();
+
+      // Fetch from Supabase Postgres if available
+      _couponService.fetchCouponsFromSupabase().then((remote) {
+        if (remote.isNotEmpty) {
+          _coupons.assignAll(remote);
+          update();
+        }
+      });
+    });
+
+    // Synchronous immediate load for fast UI rendering
+    final loaded = _couponService.loadCoupons();
+    if (loaded.isNotEmpty) {
+      _coupons.assignAll(loaded);
+    } else {
+      _loadPresets();
+    }
     _isInitialized.value = true;
     update();
-    if (prefs == null) {
-      SharedPreferences.getInstance().then((p) {
-        _prefs = p;
-        _loadCoupons();
-      });
-    }
   }
 
   void _loadCoupons() {
-    final raw = _prefs?.getString(_kCouponsKey);
-    if (raw != null) {
-      try {
-        final decoded = jsonDecode(raw) as List;
-        _coupons.assignAll(
-          decoded.map((e) => Coupon.fromJson(e as Map<String, dynamic>)),
-        );
-        return;
-      } catch (_) {}
+    final loaded = _couponService.loadCoupons();
+    if (loaded.isNotEmpty) {
+      _coupons.assignAll(loaded);
+    } else {
+      _loadPresets();
     }
+  }
 
-    // Default presets if no coupons exist yet
+  void _loadPresets() {
     _coupons.assignAll([
       Coupon(
         id: 'cp_1',
@@ -82,17 +95,20 @@ class CouponController extends GetxController {
         isActive: true,
         usageCount: 67,
       ),
+      Coupon(
+        id: 'cp_5',
+        code: 'CUPON15',
+        discountPercent: 30,
+        minOrderAmount: 500,
+        expiryDate: DateTime.now().add(const Duration(days: 90)),
+        isActive: true,
+        usageCount: 23,
+      ),
     ]);
-    _saveCoupons();
-  }
-
-  Future<void> _saveCoupons() async {
-    final prefs = _prefs;
-    if (prefs == null) return;
-    await prefs.setString(
-      _kCouponsKey,
-      jsonEncode(_coupons.map((c) => c.toJson()).toList()),
-    );
+    _couponService.saveCoupons(_coupons);
+    for (final c in _coupons) {
+      _couponService.syncAddCoupon(c);
+    }
   }
 
   void addCoupon({
@@ -112,7 +128,8 @@ class CouponController extends GetxController {
       usageCount: 0,
     );
     _coupons.insert(0, newCoupon);
-    _saveCoupons();
+    _couponService.saveCoupons(_coupons);
+    _couponService.syncAddCoupon(newCoupon);
     update();
   }
 
@@ -120,23 +137,44 @@ class CouponController extends GetxController {
     final index = _coupons.indexWhere((c) => c.id == id);
     if (index >= 0) {
       final current = _coupons[index];
-      _coupons[index] = current.copyWith(isActive: !current.isActive);
-      _saveCoupons();
+      final updated = current.copyWith(isActive: !current.isActive);
+      _coupons[index] = updated;
+      _couponService.saveCoupons(_coupons);
+      _couponService.syncUpdateCoupon(updated);
       update();
     }
   }
 
   void deleteCoupon(String id) {
     _coupons.removeWhere((c) => c.id == id);
-    _saveCoupons();
+    _couponService.saveCoupons(_coupons);
+    _couponService.syncDeleteCoupon(id);
     update();
+  }
+
+  void incrementUsageCount(String code) {
+    final cleanCode = code.trim().toUpperCase();
+    final index = _coupons.indexWhere((c) => c.code == cleanCode);
+    if (index >= 0) {
+      final current = _coupons[index];
+      final updated = current.copyWith(usageCount: current.usageCount + 1);
+      _coupons[index] = updated;
+      _couponService.saveCoupons(_coupons);
+      _couponService.syncIncrementUsage(cleanCode);
+      update();
+    }
+  }
+
+  Coupon? findCoupon(String code) {
+    final cleanCode = code.trim().toUpperCase();
+    return _coupons.firstWhereOrNull((c) => c.code == cleanCode);
   }
 
   /// Validates [code] against [orderTotal].
   /// Returns discount amount in PKR if valid, or null if invalid.
   double? calculateDiscount(String code, double orderTotal) {
     final cleanCode = code.trim().toUpperCase();
-    final match = _coupons.firstWhereOrNull((c) => c.code == cleanCode);
+    final match = findCoupon(cleanCode);
     if (match == null || !match.isValid) return null;
     if (orderTotal < match.minOrderAmount) return null;
     return (orderTotal * match.discountPercent) / 100.0;

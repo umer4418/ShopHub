@@ -114,13 +114,29 @@ class CartScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
               child: Column(
                 children: [
+                  if (cartCtrl.appliedCoupon != null) ...[
+                    Row(
+                      children: [
+                        Text(
+                          'Coupon (${cartCtrl.appliedCoupon!.code} - ${cartCtrl.appliedCoupon!.discountPercent}%)',
+                          style: const TextStyle(fontSize: 13.5, color: Colors.green, fontWeight: FontWeight.w600),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '-${pkr.format(cartCtrl.discountAmount)}',
+                          style: const TextStyle(fontSize: 14, color: Colors.green, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
                   Row(
                     children: [
                       const Text('Total',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                       const Spacer(),
                       Text(
-                        pkr.format(cartCtrl.cartTotal),
+                        pkr.format(cartCtrl.finalTotal),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,

@@ -1389,6 +1389,28 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                           ),
 
                           const Divider(height: 24),
+                          if (current.couponCode != null && current.couponCode!.isNotEmpty) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.local_offer, size: 16, color: Colors.green),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Coupon Applied (${current.couponCode}):',
+                                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '-${pkr.format(current.discountAmount ?? 0)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.green),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -1981,7 +2003,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                       ),
                       DataCell(Text(pkr.format(c.minOrderAmount))),
                       DataCell(Text('${c.usageCount} times redeemed')),
-                      DataCell(Text(DateFormat('dd MMM yyyy').format(c.expiryDate))),
+                      DataCell(Text(DateFormat('dd MMM yyyy, hh:mm a').format(c.expiryDate))),
                       DataCell(
                         Switch(
                           value: c.isActive,
@@ -2010,63 +2032,148 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   void _openAddCouponDialog(BuildContext context) {
     final couponCtrl = Get.find<CouponController>();
     final codeCtrl = TextEditingController();
-    final percentCtrl = TextEditingController(text: '20');
-    final minSpendCtrl = TextEditingController(text: '1500');
+    final percentCtrl = TextEditingController(text: '30');
+    final minSpendCtrl = TextEditingController(text: '500');
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 30));
+    TimeOfDay selectedTime = const TimeOfDay(hour: 23, minute: 59);
 
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Create Discount Coupon'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: codeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Promo Code (e.g. SHOPHUB25, EIDSALE)',
-                hintText: 'PROMO2026',
-              ),
-              textCapitalization: TextCapitalization.characters,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Create Discount Coupon'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: codeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Promo Code (e.g. CUPON15, SHOPHUB30, EIDSALE)',
+                    hintText: 'CUPON15',
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: percentCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Discount Percentage (%)',
+                    hintText: '30',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: minSpendCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Minimum Order Amount (PKR)',
+                    hintText: '500',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Coupon Validity (Date & Time)',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: ctx,
+                                  initialDate: selectedDate,
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime(2035),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => selectedDate = picked);
+                                }
+                              },
+                              icon: const Icon(Icons.calendar_today, size: 16),
+                              label: Text(
+                                DateFormat('dd MMM yyyy').format(selectedDate),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final picked = await showTimePicker(
+                                  context: ctx,
+                                  initialTime: selectedTime,
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => selectedTime = picked);
+                                }
+                              },
+                              icon: const Icon(Icons.access_time, size: 16),
+                              label: Text(
+                                selectedTime.format(ctx),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Expires: ${DateFormat('dd MMM yyyy').format(selectedDate)} at ${selectedTime.format(ctx)}',
+                        style: const TextStyle(
+                          color: ShopColors.primary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: percentCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Discount Percentage (%)',
-                hintText: '20',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: minSpendCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Minimum Order Amount (PKR)',
-                hintText: '1000',
-              ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: ShopColors.primary),
+              onPressed: () {
+                if (codeCtrl.text.trim().isNotEmpty) {
+                  final combinedExpiry = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
+                  couponCtrl.addCoupon(
+                    code: codeCtrl.text.trim(),
+                    discountPercent: int.tryParse(percentCtrl.text) ?? 10,
+                    minOrderAmount: double.tryParse(minSpendCtrl.text) ?? 500,
+                    expiryDate: combinedExpiry,
+                  );
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('Create Coupon'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: ShopColors.primary),
-            onPressed: () {
-              if (codeCtrl.text.trim().isNotEmpty) {
-                couponCtrl.addCoupon(
-                  code: codeCtrl.text.trim(),
-                  discountPercent: int.tryParse(percentCtrl.text) ?? 10,
-                  minOrderAmount: double.tryParse(minSpendCtrl.text) ?? 500,
-                  expiryDate: DateTime.now().add(const Duration(days: 60)),
-                );
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Create Coupon'),
-          ),
-        ],
       ),
     );
   }

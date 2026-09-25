@@ -44,6 +44,12 @@ void main() {
   test('CouponController manages coupons and validates discounts accurately', () {
     expect(couponCtrl.coupons.isNotEmpty, isTrue);
 
+    // Verify preset CUPON15 has 30% discount as requested
+    final cupon15 = couponCtrl.findCoupon('CUPON15');
+    expect(cupon15, isNotNull);
+    expect(cupon15!.discountPercent, 30);
+    expect(couponCtrl.calculateDiscount('CUPON15', 1000), 300.0);
+
     // Initial preset coupons test
     final coupon = couponCtrl.coupons.firstWhere((c) => c.code == 'SHOPHUB20');
     expect(coupon.discountPercent, 20);
@@ -56,14 +62,17 @@ void main() {
     final lowDiscount = couponCtrl.calculateDiscount('SHOPHUB20', 1000);
     expect(lowDiscount, isNull);
 
-    // Add new coupon
+    // Add new coupon with custom date & time validity
+    final customExpiry = DateTime(2027, 5, 20, 23, 59);
     couponCtrl.addCoupon(
       code: 'TEST50',
       discountPercent: 50,
       minOrderAmount: 1000,
-      expiryDate: DateTime.now().add(const Duration(days: 30)),
+      expiryDate: customExpiry,
     );
     expect(couponCtrl.coupons.any((c) => c.code == 'TEST50'), isTrue);
+    final added = couponCtrl.findCoupon('TEST50')!;
+    expect(added.expiryDate, customExpiry);
 
     // Toggle status
     final newC = couponCtrl.coupons.firstWhere((c) => c.code == 'TEST50');
@@ -77,6 +86,46 @@ void main() {
     // Delete coupon
     couponCtrl.deleteCoupon(newC.id);
     expect(couponCtrl.coupons.any((c) => c.code == 'TEST50'), isFalse);
+  });
+
+  test('CartController applies CUPON15 and calculates 30% discount correctly', () {
+    cartCtrl.addToCart(MockCatalog.products[0], qty: 2); // 3499 * 2 = 6998
+    expect(cartCtrl.cartTotal, 6998.0);
+
+    // Apply CUPON15
+    final err = cartCtrl.applyCoupon('CUPON15', couponCtrl);
+    expect(err, isNull);
+    expect(cartCtrl.appliedCoupon?.code, 'CUPON15');
+
+    // 30% of 6998 = 2099.4
+    expect(cartCtrl.discountAmount, closeTo(2099.4, 0.01));
+    expect(cartCtrl.finalTotal, closeTo(6998.0 - 2099.4, 0.01));
+
+    // Place order with coupon
+    final order = orderCtrl.placeOrder(
+      name: 'Test Customer',
+      phone: '03001234567',
+      address: 'Test Address',
+      items: cartCtrl.cart,
+      total: cartCtrl.finalTotal,
+      couponCode: cartCtrl.appliedCoupon?.code,
+      discountAmount: cartCtrl.discountAmount,
+    );
+
+    expect(order.couponCode, 'CUPON15');
+    expect(order.discountAmount, closeTo(2099.4, 0.01));
+    expect(order.total, closeTo(4898.6, 0.01));
+
+    // Usage count increment
+    final prevUsage = couponCtrl.findCoupon('CUPON15')?.usageCount ?? 0;
+    couponCtrl.incrementUsageCount('CUPON15');
+    expect(couponCtrl.findCoupon('CUPON15')?.usageCount, prevUsage + 1);
+
+    // Remove coupon
+    cartCtrl.removeCoupon();
+    expect(cartCtrl.appliedCoupon, isNull);
+    expect(cartCtrl.discountAmount, 0.0);
+    expect(cartCtrl.finalTotal, 6998.0);
   });
 
   testWidgets('AdminLoginScreen denies access to non-admin and authenticates Super Admin',
@@ -99,10 +148,13 @@ void main() {
     // Verify title and branding
     expect(find.text('Super Admin Login'), findsOneWidget);
 
-    // Enter customer credentials
+    // Verify fields are blank on initial load - NO AUTOFILL!
     final emailField = find.widgetWithText(TextField, 'admin@shophub.com');
     final passField = find.widgetWithText(TextField, '••••••••');
+    expect(tester.widget<TextField>(emailField).controller?.text, '');
+    expect(tester.widget<TextField>(passField).controller?.text, '');
 
+    // Enter customer credentials
     await tester.enterText(emailField, MockCatalog.demoCustomer.email);
     await tester.enterText(passField, MockCatalog.demoCustomer.password);
 

@@ -24,6 +24,8 @@ class ShopOrder {
   final double total;
   final DateTime createdAt;
   final OrderStatus status;
+  final String? couponCode;
+  final double? discountAmount;
 
   const ShopOrder({
     required this.id,
@@ -36,6 +38,8 @@ class ShopOrder {
     required this.total,
     required this.createdAt,
     required this.status,
+    this.couponCode,
+    this.discountAmount,
   });
 
   ShopOrder copyWith({
@@ -49,6 +53,8 @@ class ShopOrder {
     double? total,
     DateTime? createdAt,
     OrderStatus? status,
+    String? couponCode,
+    double? discountAmount,
   }) =>
       ShopOrder(
         id: id ?? this.id,
@@ -61,6 +67,8 @@ class ShopOrder {
         total: total ?? this.total,
         createdAt: createdAt ?? this.createdAt,
         status: status ?? this.status,
+        couponCode: couponCode ?? this.couponCode,
+        discountAmount: discountAmount ?? this.discountAmount,
       );
 
   Map<String, dynamic> toJson() => {
@@ -78,6 +86,10 @@ class ShopOrder {
         'createdAt': createdAt.toIso8601String(),
         'created_at': createdAt.toIso8601String(),
         'status': status.name,
+        if (couponCode != null) 'couponCode': couponCode,
+        if (couponCode != null) 'coupon_code': couponCode,
+        if (discountAmount != null) 'discountAmount': discountAmount,
+        if (discountAmount != null) 'discount_amount': discountAmount,
       };
 
   Map<String, dynamic> toSupabaseMap() => {
@@ -91,6 +103,8 @@ class ShopOrder {
         'total': total,
         'created_at': createdAt.toIso8601String(),
         'status': status.name,
+        if (couponCode != null) 'coupon_code': couponCode,
+        if (discountAmount != null) 'discount_amount': discountAmount,
       };
 
   factory ShopOrder.fromJson(Map<String, dynamic> json) => ShopOrder(
@@ -113,5 +127,7 @@ class ShopOrder {
           (s) => s.name == json['status'],
           orElse: () => OrderStatus.placed,
         ),
+        couponCode: (json['couponCode'] ?? json['coupon_code']) as String?,
+        discountAmount: ((json['discountAmount'] ?? json['discount_amount']) as num?)?.toDouble(),
       );
 }

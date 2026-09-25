@@ -17,8 +17,8 @@ class AdminLoginScreen extends StatefulWidget {
 }
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
-  final _emailCtrl = TextEditingController(text: 'admin@shophub.com');
-  final _passCtrl = TextEditingController(text: 'admin123');
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
   String? _error;
@@ -297,6 +297,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         const SizedBox(height: 6),
         TextField(
           controller: _emailCtrl,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.emailAddress,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             filled: true,
@@ -325,6 +328,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         TextField(
           controller: _passCtrl,
           obscureText: _obscure,
+          autocorrect: false,
+          enableSuggestions: false,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             filled: true,

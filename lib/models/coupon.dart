@@ -45,20 +45,35 @@ class Coupon {
         'id': id,
         'code': code,
         'discountPercent': discountPercent,
+        'discount_percent': discountPercent,
         'minOrderAmount': minOrderAmount,
+        'min_order_amount': minOrderAmount,
         'expiryDate': expiryDate.toIso8601String(),
+        'expiry_date': expiryDate.toIso8601String(),
         'isActive': isActive,
+        'is_active': isActive,
         'usageCount': usageCount,
+        'usage_count': usageCount,
+      };
+
+  Map<String, dynamic> toSupabaseMap() => {
+        'id': id,
+        'code': code,
+        'discount_percent': discountPercent,
+        'min_order_amount': minOrderAmount,
+        'expiry_date': expiryDate.toIso8601String(),
+        'is_active': isActive,
+        'usage_count': usageCount,
       };
 
   factory Coupon.fromJson(Map<String, dynamic> json) => Coupon(
-        id: json['id'] as String,
-        code: (json['code'] as String).toUpperCase(),
-        discountPercent: (json['discountPercent'] as num).toInt(),
-        minOrderAmount: (json['minOrderAmount'] as num?)?.toDouble() ?? 0.0,
-        expiryDate: DateTime.tryParse(json['expiryDate'] as String? ?? '') ??
+        id: json['id']?.toString() ?? '',
+        code: (json['code'] as String? ?? '').toUpperCase(),
+        discountPercent: (json['discountPercent'] ?? json['discount_percent'] as num?)?.toInt() ?? 0,
+        minOrderAmount: (json['minOrderAmount'] ?? json['min_order_amount'] as num?)?.toDouble() ?? 0.0,
+        expiryDate: DateTime.tryParse((json['expiryDate'] ?? json['expiry_date']) as String? ?? '') ??
             DateTime.now().add(const Duration(days: 30)),
-        isActive: json['isActive'] as bool? ?? true,
-        usageCount: (json['usageCount'] as num?)?.toInt() ?? 0,
+        isActive: (json['isActive'] ?? json['is_active']) as bool? ?? true,
+        usageCount: (json['usageCount'] ?? json['usage_count'] as num?)?.toInt() ?? 0,
       );
 }

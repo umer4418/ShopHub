@@ -190,6 +190,8 @@ class OrderController extends GetxController {
     String paymentMethod = 'Cash on Delivery',
     required List<CartItem> items,
     required double total,
+    String? couponCode,
+    double? discountAmount,
   }) {
     final id =
         'SH${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
@@ -204,6 +206,8 @@ class OrderController extends GetxController {
       total: total,
       createdAt: DateTime.now(),
       status: OrderStatus.placed,
+      couponCode: couponCode,
+      discountAmount: discountAmount,
     );
 
     _orders.insert(0, order);

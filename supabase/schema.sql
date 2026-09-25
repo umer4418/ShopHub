@@ -51,7 +51,21 @@ CREATE TABLE IF NOT EXISTS public.orders (
   payment_method TEXT NOT NULL DEFAULT 'Cash on Delivery',
   items JSONB NOT NULL DEFAULT '[]'::jsonb,
   total NUMERIC NOT NULL,
+  coupon_code TEXT DEFAULT NULL,
+  discount_amount NUMERIC DEFAULT NULL,
   status TEXT NOT NULL DEFAULT 'placed',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 5. Create Coupons Table
+CREATE TABLE IF NOT EXISTS public.coupons (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  discount_percent INT NOT NULL,
+  min_order_amount NUMERIC NOT NULL DEFAULT 0,
+  expiry_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  usage_count INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -63,6 +77,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Anyone authenticated can read profiles; users can update their own
 CREATE POLICY "Public profiles are viewable by everyone" 
@@ -97,6 +112,19 @@ CREATE POLICY "Orders insertable by everyone"
 
 CREATE POLICY "Orders updatable by everyone" 
   ON public.orders FOR UPDATE USING (true);
+
+-- Coupons: Viewable by everyone; manageable by super admin & authenticated users
+CREATE POLICY "Coupons viewable by everyone" 
+  ON public.coupons FOR SELECT USING (true);
+
+CREATE POLICY "Coupons insertable by everyone" 
+  ON public.coupons FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Coupons updatable by everyone" 
+  ON public.coupons FOR UPDATE USING (true);
+
+CREATE POLICY "Coupons deletable by everyone" 
+  ON public.coupons FOR DELETE USING (true);
 
 -- ==============================================================================
 -- Automatic Profile Creation Trigger on New User Signup
@@ -211,3 +239,16 @@ ON CONFLICT (id) DO UPDATE SET
   stock = EXCLUDED.stock,
   featured = EXCLUDED.featured,
   popular = EXCLUDED.popular;
+
+-- 4. Initial Seed Coupons
+INSERT INTO public.coupons (id, code, discount_percent, min_order_amount, expiry_date, is_active, usage_count) VALUES
+('cp_1', 'SHOPHUB20', 20, 1500, now() + interval '60 days', true, 42),
+('cp_2', 'WELCOME10', 10, 500, now() + interval '90 days', true, 118),
+('cp_3', 'SUPERADMIN50', 50, 2500, now() + interval '120 days', true, 15),
+('cp_4', 'EIDMEGA', 30, 4000, now() + interval '45 days', true, 67),
+('cp_5', 'CUPON15', 30, 500, now() + interval '90 days', true, 23)
+ON CONFLICT (code) DO UPDATE SET
+  discount_percent = EXCLUDED.discount_percent,
+  min_order_amount = EXCLUDED.min_order_amount,
+  expiry_date = EXCLUDED.expiry_date,
+  is_active = EXCLUDED.is_active;
