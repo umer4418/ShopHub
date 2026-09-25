@@ -33,6 +33,7 @@ class ChatbotService {
     http.Client? httpClient,
   }) : _httpClient = httpClient ?? http.Client();
 
+  bool _isKeyInvalid = false;
   SharedPreferences? _prefs;
 
   bool get hasSupabase {
@@ -106,7 +107,7 @@ class ChatbotService {
     final cleanMessage = message.trim();
 
     // 1. Direct Gemini AI Call with Live Supabase Context Grounding (Primary AI Engine)
-    if (geminiApiKey.isNotEmpty) {
+    if (geminiApiKey.isNotEmpty && !_isKeyInvalid) {
       final geminiMsg = await _callGemini(
         message: cleanMessage,
         history: history,
@@ -220,6 +221,12 @@ class ChatbotService {
             }
           }),
         ).timeout(const Duration(milliseconds: 3500));
+
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          debugPrint('Gemini API key is invalid, revoked, or leaked (HTTP ${response.statusCode}). Falling back immediately to fast local engine.');
+          _isKeyInvalid = true;
+          break;
+        }
 
         if (response.statusCode == 429) {
           debugPrint('Gemini model $model returned HTTP 429 (quota limit). Falling back to fast local engine.');
@@ -597,13 +604,9 @@ ORDER TRACKING GUIDELINES:
 
     // Payment methods inquiries
     if (lower.contains('payment') ||
-        lower.contains('pay') ||
         lower.contains('cash on delivery') ||
-        lower.contains('cod') ||
         lower.contains('stripe') ||
-        lower.contains('card') ||
-        lower.contains('credit') ||
-        lower.contains('debit')) {
+        RegExp(r'\b(pay|paying|cod|card|cards|credit|debit)\b').hasMatch(lower)) {
       return ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         text: "💳 **ShopHub Payment Methods:**\n\n"
@@ -742,10 +745,32 @@ ORDER TRACKING GUIDELINES:
         lower.contains('available') ||
         lower.contains('restock')) {
       Product? matchedProduct;
+      // Exact match
       for (final p in localProducts) {
         if (lower.contains(p.name.toLowerCase())) {
           matchedProduct = p;
           break;
+        }
+      }
+      // Multi-word partial match
+      if (matchedProduct == null) {
+        for (final p in localProducts) {
+          final words = p.name.toLowerCase().split(RegExp(r'\s+')).where((w) => w.length >= 4).toList();
+          final matchCount = words.where((w) => lower.contains(w)).length;
+          if (matchCount >= 2 || (words.length == 1 && matchCount == 1)) {
+            matchedProduct = p;
+            break;
+          }
+        }
+      }
+      // Single significant keyword match
+      if (matchedProduct == null) {
+        for (final p in localProducts) {
+          final words = p.name.toLowerCase().split(RegExp(r'\s+')).where((w) => w.length >= 4).toList();
+          if (words.any((w) => lower.contains(w))) {
+            matchedProduct = p;
+            break;
+          }
         }
       }
 
@@ -896,6 +921,13 @@ ORDER TRACKING GUIDELINES:
 
   /// Determines if a query is relevant to shopping, orders, stock, delivery, or any ShopHub app features.
   bool _isRelevantQuery(String text) {
+    final lower = text.toLowerCase().trim();
+
+    // Explicit off-topic indicators (programming, trivia, general science, math, recipes, jokes)
+    if (RegExp(r'\b(python|java|c\+\+|javascript|html|css|algorithm|binary tree|capital of|president of|prime minister|mona lisa|speed of light|photosynthesis|gravity|who wrote|who painted|bake a|recipe for|tell me a joke)\b').hasMatch(lower)) {
+      return false;
+    }
+
     // Greeting or general help
     if (RegExp(r'^(hi|hello|hey|greetings|help|who are you|what can you do|assalam|aoa|guide|support)\b', caseSensitive: false).hasMatch(text)) {
       return true;
