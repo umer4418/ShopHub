@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../app/routes/app_routes.dart';
+import '../controllers/auth_controller.dart';
 import '../controllers/cart_controller.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
@@ -149,8 +150,20 @@ class CartScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () =>
-                          Navigator.pushNamed(context, AppRoutes.checkout),
+                      onPressed: () {
+                        final authCtrl = Get.find<AuthController>();
+                        if (!authCtrl.isLoggedIn) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please log in as a customer to place an order.'),
+                              backgroundColor: Colors.orange,
+                            ),
+                          );
+                          Navigator.pushNamed(context, AppRoutes.login);
+                          return;
+                        }
+                        Navigator.pushNamed(context, AppRoutes.checkout);
+                      },
                       child: const Text('Proceed to Checkout'),
                     ),
                   ),

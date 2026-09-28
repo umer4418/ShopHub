@@ -148,10 +148,11 @@ void main() {
       expect(outOfStockRes.text, contains('3 to 5 business days'));
     });
 
-    test('Tracks order when order number is provided', () async {
+    test('Requires login when tracking orders without email', () async {
       final sampleOrder = ShopOrder(
         id: 'ORD-9988',
         customerName: 'Ahmed Ali',
+        customerEmail: 'ahmed@gmail.com',
         phone: '03001234567',
         address: 'House 12, Street 4, Lahore',
         paymentMethod: 'Cash on Delivery',
@@ -171,10 +172,68 @@ void main() {
         localOrders: [sampleOrder],
       );
 
+      expect(res.text, contains('Account Login Required'));
+      expect(res.text, contains('Please log into your ShopHub account'));
+    });
+
+    test('Tracks order when customer is logged in with matching email', () async {
+      final sampleOrder = ShopOrder(
+        id: 'ORD-9988',
+        customerName: 'Ahmed Ali',
+        customerEmail: 'ahmed@gmail.com',
+        phone: '03001234567',
+        address: 'House 12, Street 4, Lahore',
+        paymentMethod: 'Cash on Delivery',
+        items: const [
+          CartItem(
+            product: productInStock,
+            quantity: 1,
+          ),
+        ],
+        total: 5000,
+        createdAt: DateTime.now(),
+        status: OrderStatus.processing,
+      );
+
+      final res = await service.sendMessage(
+        message: 'Where is my order ORD-9988?',
+        localOrders: [sampleOrder],
+        userEmail: 'ahmed@gmail.com',
+      );
+
       expect(res.orderId, 'ORD-9988');
       expect(res.text, contains('ORD-9988'));
       expect(res.text.toUpperCase(), contains('PROCESSING'));
       expect(res.text, contains('Lahore'));
+    });
+
+    test('Denies access when tracking an order ID belonging to another user', () async {
+      final userOrder = ShopOrder(
+        id: 'ORD-MINE',
+        customerName: 'Bilal Sher',
+        customerEmail: 'bilal@gmail.com',
+        phone: '03001112233',
+        address: 'Islamabad',
+        paymentMethod: 'Cash on Delivery',
+        items: const [
+          CartItem(
+            product: productInStock,
+            quantity: 1,
+          ),
+        ],
+        total: 3000,
+        createdAt: DateTime.now(),
+        status: OrderStatus.processing,
+      );
+
+      final res = await service.sendMessage(
+        message: 'Track order ORD-OTHER',
+        localOrders: [userOrder],
+        userEmail: 'bilal@gmail.com',
+      );
+
+      expect(res.text, contains('Order Not Found In Your Account'));
+      expect(res.text, contains('ORD-OTHER'));
     });
   });
 

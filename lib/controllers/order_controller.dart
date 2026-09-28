@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../data/mock_catalog.dart';
 import '../models/cart_item.dart';
 import '../models/order.dart';
+import '../models/user.dart';
 import '../services/order_service.dart';
 
 /// Order Controller
@@ -174,16 +175,41 @@ class OrderController extends GetxController {
   List<ShopOrder> getUserOrders({
     required String phone,
     required String name,
+    String? email,
+    String? userId,
   }) {
+    final lowerName = name.toLowerCase().trim();
+    final lowerEmail = email?.toLowerCase().trim();
     return _orders
         .where((o) =>
+            (userId != null && o.userId == userId) ||
+            (lowerEmail != null && o.customerEmail != null && o.customerEmail!.toLowerCase().trim() == lowerEmail) ||
             (phone.isNotEmpty && o.phone == phone) ||
-            (name.isNotEmpty && o.customerName.toLowerCase() == name.toLowerCase()))
+            (lowerName.isNotEmpty && o.customerName.toLowerCase().trim() == lowerName))
         .toList();
+  }
+
+  /// Returns orders that belong strictly to [user].
+  /// Super admins can view all orders. Customers can only view their own orders.
+  List<ShopOrder> getOrdersForUser(ShopUser? user) {
+    if (user == null) return const [];
+    if (user.isAdmin) return List.unmodifiable(_orders);
+
+    final email = user.email.toLowerCase().trim();
+    final id = user.id;
+    final phone = user.phone.trim();
+
+    return _orders.where((o) {
+      if (id != null && o.userId == id) return true;
+      if (o.customerEmail != null && o.customerEmail!.toLowerCase().trim() == email) return true;
+      if (phone.isNotEmpty && o.phone.trim() == phone) return true;
+      return false;
+    }).toList();
   }
 
   ShopOrder placeOrder({
     String? userId,
+    String? customerEmail,
     required String name,
     required String phone,
     required String address,
@@ -198,6 +224,7 @@ class OrderController extends GetxController {
     final order = ShopOrder(
       id: id,
       userId: userId,
+      customerEmail: customerEmail,
       customerName: name,
       phone: phone,
       address: address,

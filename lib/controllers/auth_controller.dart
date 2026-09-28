@@ -32,8 +32,20 @@ class AuthController extends GetxController {
     _users.assignAll(_authService.loadUsers());
     _loadInitialSession();
     _listenToAuthChanges();
+    fetchUsers();
     _isInitialized.value = true;
     update();
+  }
+
+  /// Fetches all registered users from Supabase and updates the live list.
+  Future<void> fetchUsers() async {
+    try {
+      final remote = await _authService.fetchUsersFromSupabase();
+      if (remote.isNotEmpty) {
+        _users.assignAll(remote);
+        update();
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadInitialSession() async {

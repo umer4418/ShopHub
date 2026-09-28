@@ -240,6 +240,47 @@ class AuthService {
     }
   }
 
+  /// Fetches all registered users from the Supabase Postgres 'profiles' table.
+  Future<List<ShopUser>> fetchUsersFromSupabase() async {
+    if (!hasSupabase) return loadUsers();
+    try {
+      final data = await _supabase
+          .from('profiles')
+          .select()
+          .order('created_at', ascending: false);
+
+      final list = (data as List).map((row) {
+        final map = row as Map<String, dynamic>;
+        final isAdmin = (map['is_admin'] == true) || (map['role'] == 'admin');
+        return ShopUser(
+          id: map['id'] as String?,
+          name: (map['name'] as String?) ?? '',
+          email: (map['email'] as String?) ?? '',
+          phone: (map['phone'] as String?) ?? '',
+          isAdmin: isAdmin,
+          role: (map['role'] as String?) ?? (isAdmin ? 'admin' : 'customer'),
+        );
+      }).toList();
+
+      if (list.isNotEmpty) {
+        // Merge with existing local/mock users without duplicate emails
+        final local = loadUsers();
+        final Map<String, ShopUser> map = {
+          for (final u in local) u.email.toLowerCase(): u,
+        };
+        for (final u in list) {
+          map[u.email.toLowerCase()] = u;
+        }
+        final merged = map.values.toList();
+        await saveUsers(merged);
+        return merged;
+      }
+    } catch (e) {
+      debugPrint('Error fetching users from Supabase profiles: $e');
+    }
+    return loadUsers();
+  }
+
   // --------------------------------------------------------------------------
   // Local storage caching for offline/mock compatibility
   // --------------------------------------------------------------------------

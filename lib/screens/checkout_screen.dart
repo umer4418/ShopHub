@@ -54,6 +54,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _handleCheckout(CartController cartCtrl, OrderController orderCtrl) async {
     if (!_form.currentState!.validate()) return;
     final authCtrl = Get.find<AuthController>();
+    if (!authCtrl.isLoggedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in as a customer to place an order.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      Navigator.pushNamed(context, AppRoutes.login);
+      return;
+    }
+
     final couponCtrl = Get.find<CouponController>();
     final tempOrderId = 'SH${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
@@ -80,6 +91,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final order = orderCtrl.placeOrder(
         userId: authCtrl.currentUser?.id,
+        customerEmail: authCtrl.currentUser?.email,
         name: _name.text.trim(),
         phone: _phone.text.trim(),
         address: _address.text.trim(),
@@ -108,6 +120,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final order = orderCtrl.placeOrder(
         userId: authCtrl.currentUser?.id,
+        customerEmail: authCtrl.currentUser?.email,
         name: _name.text.trim(),
         phone: _phone.text.trim(),
         address: _address.text.trim(),

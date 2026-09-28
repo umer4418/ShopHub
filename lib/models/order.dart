@@ -16,6 +16,7 @@ extension OrderStatusLabel on OrderStatus {
 class ShopOrder {
   final String id;
   final String? userId;
+  final String? customerEmail;
   final String customerName;
   final String phone;
   final String address;
@@ -30,6 +31,7 @@ class ShopOrder {
   const ShopOrder({
     required this.id,
     this.userId,
+    this.customerEmail,
     required this.customerName,
     required this.phone,
     required this.address,
@@ -45,6 +47,7 @@ class ShopOrder {
   ShopOrder copyWith({
     String? id,
     String? userId,
+    String? customerEmail,
     String? customerName,
     String? phone,
     String? address,
@@ -59,6 +62,7 @@ class ShopOrder {
       ShopOrder(
         id: id ?? this.id,
         userId: userId ?? this.userId,
+        customerEmail: customerEmail ?? this.customerEmail,
         customerName: customerName ?? this.customerName,
         phone: phone ?? this.phone,
         address: address ?? this.address,
@@ -75,6 +79,8 @@ class ShopOrder {
         'id': id,
         if (userId != null) 'userId': userId,
         if (userId != null) 'user_id': userId,
+        if (customerEmail != null) 'customerEmail': customerEmail,
+        if (customerEmail != null) 'customer_email': customerEmail,
         'customerName': customerName,
         'customer_name': customerName,
         'phone': phone,
@@ -95,6 +101,7 @@ class ShopOrder {
   Map<String, dynamic> toSupabaseMap() => {
         'id': id,
         if (userId != null) 'user_id': userId,
+        if (customerEmail != null) 'customer_email': customerEmail,
         'customer_name': customerName,
         'phone': phone,
         'address': address,
@@ -110,6 +117,7 @@ class ShopOrder {
   factory ShopOrder.fromJson(Map<String, dynamic> json) => ShopOrder(
         id: json['id'] as String,
         userId: (json['userId'] ?? json['user_id']) as String?,
+        customerEmail: (json['customerEmail'] ?? json['customer_email']) as String?,
         customerName: (json['customerName'] ?? json['customer_name'] ?? '') as String,
         phone: (json['phone'] as String?) ?? '',
         address: (json['address'] as String?) ?? '',

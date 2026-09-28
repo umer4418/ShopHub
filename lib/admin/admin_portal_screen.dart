@@ -176,53 +176,62 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
           const Divider(color: Colors.white10, height: 1),
 
           // Logged in Super Admin Card & Logout
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: const Color(0xFF1E293B),
-            child: Row(
-              children: [
-                const CircleAvatar(
-                  radius: 18,
-                  backgroundColor: ShopColors.primary,
-                  child: Text(
-                    'A',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          Obx(() {
+            final user = authCtrl.currentUser;
+            final name = (user?.name != null && user!.name.trim().isNotEmpty) ? user.name.trim() : 'Super Admin';
+            final email = (user?.email != null && user!.email.trim().isNotEmpty) ? user.email.trim() : 'admin@shophub.com';
+            final initial = name.isNotEmpty ? name[0].toUpperCase() : 'A';
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              color: const Color(0xFF1E293B),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: ShopColors.primary,
+                    child: Text(
+                      initial,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Super Admin',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      Text(
-                        'admin@shophub.com',
-                        style: TextStyle(color: Colors.white54, fontSize: 11),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        Text(
+                          email,
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Logout',
-                  icon: const Icon(Icons.logout, color: Colors.white60, size: 20),
-                  onPressed: () async {
-                    await authCtrl.logout();
-                    if (!mounted) return;
-                    Navigator.pushReplacementNamed(context, AppRoutes.home);
-                  },
-                ),
-              ],
-            ),
-          ),
+                  IconButton(
+                    tooltip: 'Logout',
+                    icon: const Icon(Icons.logout, color: Colors.white60, size: 20),
+                    onPressed: () async {
+                      await authCtrl.logout();
+                      if (!mounted) return;
+                      Navigator.pushReplacementNamed(context, AppRoutes.home);
+                    },
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -2191,14 +2200,42 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text(
-            'Registered Customers & Administrators',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Overview of registered user accounts, order volume, and customer lifetime spending.',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Registered Customers & Administrators',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Overview of registered user accounts from Supabase, order volume, and lifetime spend.',
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Refresh from Supabase'),
+                onPressed: () async {
+                  await authCtrl.fetchUsers();
+                  Get.snackbar(
+                    'Directory Updated',
+                    'Loaded registered customer profiles from Supabase database.',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.black87,
+                    colorText: Colors.white,
+                    duration: const Duration(seconds: 2),
+                  );
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 20),
 
@@ -2223,7 +2260,12 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                   DataColumn(label: Text('Total Spend', style: TextStyle(fontWeight: FontWeight.bold))),
                 ],
                 rows: users.map((u) {
-                  final userOrders = orderCtrl.getUserOrders(phone: u.phone, name: u.name);
+                  final userOrders = orderCtrl.getUserOrders(
+                    phone: u.phone,
+                    name: u.name,
+                    email: u.email,
+                    userId: u.id,
+                  );
                   final totalSpent = userOrders.fold<double>(0, (s, o) => s + o.total);
 
                   return DataRow(
@@ -2418,6 +2460,8 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   // TAB 8: ⚙️ STORE SETTINGS
   // ==========================================
   Widget _buildSettingsTab() {
+    final authCtrl = Get.find<AuthController>();
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -2460,12 +2504,18 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                 trailing: const Icon(Icons.local_shipping),
               ),
               const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Super Admin Account'),
-                subtitle: const Text('ShopHub Admin (admin@shophub.com)'),
-                trailing: const Icon(Icons.admin_panel_settings, color: Colors.amber),
-              ),
+              Obx(() {
+                final user = authCtrl.currentUser;
+                final name = (user?.name != null && user!.name.trim().isNotEmpty) ? user.name.trim() : 'Super Admin';
+                final email = (user?.email != null && user!.email.trim().isNotEmpty) ? user.email.trim() : 'admin@shophub.com';
+
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Super Admin Account'),
+                  subtitle: Text('$name ($email)'),
+                  trailing: const Icon(Icons.admin_panel_settings, color: Colors.amber),
+                );
+              }),
             ],
           ),
         ),

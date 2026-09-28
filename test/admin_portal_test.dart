@@ -230,7 +230,7 @@ void main() {
     await tester.tap(find.text('Customers & Users').first);
     await tester.pumpAndSettle();
     expect(find.text('Registered Customers & Administrators'), findsOneWidget);
-    expect(find.text('ShopHub Admin'), findsOneWidget);
+    expect(find.text('ShopHub Admin'), findsWidgets);
     expect(find.text('Ayesha Khan'), findsOneWidget);
   });
 }

@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../models/chat_message.dart';
+import '../models/order.dart';
 import '../services/chatbot_service.dart';
 import 'auth_controller.dart';
 import 'order_controller.dart';
@@ -84,17 +85,26 @@ class ChatbotController extends GetxController {
     // 2. Fetch context from active controllers if registered
     String? userId;
     String? userName;
+    String? userEmail;
     String? userPhone;
+    List<ShopOrder> userOrders = const [];
+
     if (Get.isRegistered<AuthController>()) {
       final auth = AuthController.to;
-      userId = auth.currentUser?.id;
-      userName = auth.currentUser?.name;
-      userPhone = auth.currentUser?.phone;
+      final currentUser = auth.currentUser;
+      if (currentUser != null) {
+        userId = currentUser.id;
+        userName = currentUser.name;
+        userEmail = currentUser.email;
+        userPhone = currentUser.phone;
+
+        if (Get.isRegistered<OrderController>()) {
+          // Strictly only pass orders belonging to the logged in user!
+          userOrders = OrderController.to.getOrdersForUser(currentUser);
+        }
+      }
     }
 
-    final localOrders = Get.isRegistered<OrderController>()
-        ? OrderController.to.orders
-        : const [];
     final localProducts = Get.isRegistered<ProductController>()
         ? ProductController.to.products
         : const [];
@@ -105,9 +115,10 @@ class ChatbotController extends GetxController {
         message: trimmed,
         userId: userId,
         userName: userName,
+        userEmail: userEmail,
         userPhone: userPhone,
         history: _messages.toList(),
-        localOrders: localOrders.cast(),
+        localOrders: userOrders,
         localProducts: localProducts.cast(),
       );
 

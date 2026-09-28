@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   customer_name TEXT NOT NULL,
+  customer_email TEXT DEFAULT NULL,
   phone TEXT NOT NULL,
   address TEXT NOT NULL,
   payment_method TEXT NOT NULL DEFAULT 'Cash on Delivery',
@@ -56,6 +57,9 @@ CREATE TABLE IF NOT EXISTS public.orders (
   status TEXT NOT NULL DEFAULT 'placed',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Migration helpers if tables already exist
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
 
 -- 5. Create Coupons Table
 CREATE TABLE IF NOT EXISTS public.coupons (

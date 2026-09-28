@@ -98,6 +98,7 @@ class ChatbotService {
     required String message,
     String? userId,
     String? userName,
+    String? userEmail,
     String? userPhone,
     String? orderId,
     List<ChatMessage> history = const [],
@@ -114,6 +115,7 @@ class ChatbotService {
         localOrders: localOrders,
         localProducts: localProducts,
         userName: userName,
+        userEmail: userEmail,
         orderId: orderId,
       );
 
@@ -131,6 +133,7 @@ class ChatbotService {
             'message': cleanMessage,
             'userId': userId,
             'customerName': userName,
+            'customerEmail': userEmail,
             'customerPhone': userPhone,
             'orderId': orderId,
             'conversationHistory': history.take(6).map((m) => {
@@ -173,6 +176,8 @@ class ChatbotService {
       orderId: orderId,
       localOrders: localOrders,
       localProducts: localProducts,
+      userName: userName,
+      userEmail: userEmail,
     );
   }
 
@@ -183,6 +188,7 @@ class ChatbotService {
     List<ShopOrder> localOrders = const [],
     List<Product> localProducts = const [],
     String? userName,
+    String? userEmail,
     String? orderId,
   }) async {
     final modelsToTry = [
@@ -195,6 +201,7 @@ class ChatbotService {
       localOrders: localOrders,
       localProducts: localProducts,
       userName: userName,
+      userEmail: userEmail,
     );
 
     // Look for order ID in query
@@ -296,6 +303,7 @@ class ChatbotService {
     List<ShopOrder> localOrders = const [],
     List<Product> localProducts = const [],
     String? userName,
+    String? userEmail,
   }) {
     var prompt = '''
 You are ShopBot, the dedicated official AI customer support assistant for the ShopHub mobile e-commerce application.
@@ -348,6 +356,13 @@ ORDER TRACKING GUIDELINES:
 - If order data is present, present the Order ID, status (Placed, Processing, Shipped, Delivered, Cancelled), recipient name, delivery address, items, and total amount with markdown bullet points and emojis.
 - If the Order ID is not in their records, inform them politely and suggest checking the Account > Orders section or double-checking the order number.
 ''';
+
+    if (userEmail != null && userEmail.isNotEmpty) {
+      prompt += '\n[LOGGED-IN CUSTOMER]\nName: ${userName ?? 'Customer'}, Email: $userEmail\n';
+      prompt += 'CRITICAL PRIVACY RULE: You can ONLY track orders listed under [LINKED SUPABASE ORDERS DATA] which belong exclusively to this customer ($userEmail). Never invent, disclose, or track orders belonging to other customers.\n';
+    } else {
+      prompt += '\nNOTE: The user is NOT currently logged in. If they ask to track an order or check order status, instruct them to log into their ShopHub account first.\n';
+    }
 
     if (localOrders.isNotEmpty) {
       final ordersStr = localOrders.take(5).map((o) =>
@@ -496,7 +511,27 @@ ORDER TRACKING GUIDELINES:
     if (lower.contains('weather')) return 'Weather conditions vary by location; please check a dedicated weather service for your area.';
     if (lower.contains('time') || lower.contains('date')) return 'Please check your device\'s system clock for the current local time and date.';
 
-    // 11. General Fallback
+    // 11. Prominent People & Leaders
+    if (lower.contains('elon musk')) return 'Elon Musk is the CEO of Tesla, SpaceX, and owner of X (formerly Twitter).';
+    if (lower.contains('bill gates')) return 'Bill Gates is the co-founder of Microsoft and a prominent philanthropist.';
+    if (lower.contains('steve jobs')) return 'Steve Jobs was the co-founder and former visionary CEO of Apple Inc.';
+    if (lower.contains('imran khan')) return 'Imran Khan is a former Prime Minister of Pakistan and 1992 Cricket World Cup winning captain.';
+    if (lower.contains('albert einstein') || lower.contains('einstein')) return 'Albert Einstein was a theoretical physicist famous for the theory of relativity (E=mc²).';
+    if (lower.contains('newton') || lower.contains('isaac newton')) return 'Sir Isaac Newton was an English mathematician and physicist who formulated the laws of motion and gravity.';
+
+    // 12. General Knowledge & Explanations
+    if (lower.contains('photosynthesis')) return 'Photosynthesis is the process green plants use to convert sunlight, carbon dioxide, and water into oxygen and glucose.';
+    if (lower.contains('artificial intelligence') || lower.contains('what is ai') || lower == 'ai') return 'Artificial intelligence refers to computer systems designed to perform cognitive tasks typically requiring human intelligence.';
+    if (lower.contains('gravity')) return 'Gravity is the natural force that pulls objects toward the center of the Earth or other physical bodies.';
+    if (lower.contains('grass') && lower.contains('green')) return 'Grass is green because chlorophyll absorbs red and blue light while reflecting green light.';
+    if (lower.contains('how are you')) return 'I am doing great and ready to assist you!';
+    if (lower.contains('who created you') || lower.contains('who made you')) return 'I was created by the ShopHub development team to assist you with e-commerce shopping.';
+    if (lower.contains('poem')) return 'Roses are red, violets are blue, shopping on ShopHub is fast and true.';
+
+    // 13. General Fallback
+    if (lower.startsWith('why is') || lower.startsWith('why do') || lower.startsWith('why does') || lower.startsWith('why are')) {
+      return 'Scientific and factual explanations for that phenomenon can be found in educational resources.';
+    }
     if (lower.startsWith('who is') || lower.startsWith('who was')) {
       return 'That person is a recognized public or historical figure.';
     }
@@ -519,6 +554,8 @@ ORDER TRACKING GUIDELINES:
     String? orderId,
     List<ShopOrder> localOrders = const [],
     List<Product> localProducts = const [],
+    String? userName,
+    String? userEmail,
   }) {
     final lower = message.toLowerCase().trim();
 
@@ -822,7 +859,48 @@ ORDER TRACKING GUIDELINES:
     // Order tracking inquiries
     final queryOrderId = orderId ?? extractOrderId(message);
 
-    if (queryOrderId != null || lower.contains('track') || lower.contains('my order')) {
+    if (queryOrderId != null ||
+        lower.contains('track') ||
+        lower.contains('my order') ||
+        lower.contains('where is my order') ||
+        lower.contains('order status')) {
+      // 1. If user is NOT logged in:
+      if (userEmail == null || userEmail.isEmpty) {
+        return ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          text: "🔒 **Account Login Required:**\n\n"
+              "Please log into your ShopHub account so I can look up and track your personal orders.\n\n"
+              "For your security and privacy, ShopBot only tracks orders placed with your own registered email.",
+          isUser: false,
+          timestamp: DateTime.now(),
+          quickReplies: const [
+            "How to reset password?",
+            "How to create account",
+            "What is the delivery time?",
+            "Payment options",
+          ],
+        );
+      }
+
+      // 2. User IS logged in, but has placed NO orders:
+      if (localOrders.isEmpty) {
+        final displayName = (userName != null && userName.isNotEmpty) ? userName : userEmail;
+        return ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          text: "📦 **No Orders Found:**\n\n"
+              "Hi $displayName! There are currently no orders placed under your account (**$userEmail**).\n\n"
+              "Once you place an order on ShopHub, you can track its live status, processing, and delivery right here!",
+          isUser: false,
+          timestamp: DateTime.now(),
+          quickReplies: const [
+            "How to place an order?",
+            "Payment options",
+            "What is the delivery time?",
+          ],
+        );
+      }
+
+      // 3. User has personal orders:
       ShopOrder? foundOrder;
       if (queryOrderId != null) {
         try {
@@ -830,71 +908,59 @@ ORDER TRACKING GUIDELINES:
             (o) => o.id.toLowerCase() == queryOrderId.toLowerCase() ||
                 o.id.toLowerCase().contains(queryOrderId.toLowerCase()),
           );
-        } catch (_) {}
-      } else if (localOrders.isNotEmpty) {
+        } catch (_) {
+          return ChatMessage(
+            id: DateTime.now().microsecondsSinceEpoch.toString(),
+            text: "🔒 **Order Not Found In Your Account:**\n\n"
+                "Order **#$queryOrderId** was not found under your logged-in account (**$userEmail**).\n\n"
+                "For your privacy and security, ShopBot only tracks orders placed with your registered email.",
+            isUser: false,
+            timestamp: DateTime.now(),
+            quickReplies: localOrders.map((o) => "Track ${o.id}").take(3).toList(),
+          );
+        }
+      } else {
         foundOrder = localOrders.first;
       }
 
-      if (foundOrder != null) {
-        final statusMap = {
-          OrderStatus.placed: 'Placed (Warehouse verification in progress)',
-          OrderStatus.processing: 'Processing (Being packed in warehouse)',
-          OrderStatus.shipped: 'Shipped (Handed over to courier partner)',
-          OrderStatus.delivered: 'Delivered (Successfully received)',
-        };
+      final statusMap = {
+        OrderStatus.placed: 'Placed (Warehouse verification in progress)',
+        OrderStatus.processing: 'Processing (Being packed in warehouse)',
+        OrderStatus.shipped: 'Shipped (Handed over to courier partner)',
+        OrderStatus.delivered: 'Delivered (Successfully received)',
+      };
 
-        return ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          text: "📦 **Order #${foundOrder.id} Status:**\n\n"
-              "• **Current Status:** ${statusMap[foundOrder.status] ?? foundOrder.status.name.toUpperCase()}\n"
-              "• **Recipient:** ${foundOrder.customerName}\n"
-              "• **Shipping Address:** ${foundOrder.address}\n"
-              "• **Items:** ${foundOrder.items.length} item(s)\n"
-              "• **Total Amount:** Rs. ${foundOrder.total.toStringAsFixed(0)}\n"
-              "• **Payment:** ${foundOrder.paymentMethod}\n\n"
-              "Expected delivery: 2 to 4 business days from placement date.",
-          isUser: false,
-          timestamp: DateTime.now(),
-          orderId: foundOrder.id,
-          quickReplies: const [
-            "What is the delivery time?",
-            "Processing time details",
-            "Contact support",
-          ],
-        );
-      }
+      final multipleOrdersNote = localOrders.length > 1
+          ? "\n\n💡 *You have ${localOrders.length} orders on file.* Tap an order below or type its ID to track it."
+          : "";
 
-      if (localOrders.isNotEmpty) {
-        final latest = localOrders.first;
-        return ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          text: "📦 **Your Most Recent Order (#${latest.id}):**\n\n"
-              "• **Status:** ${latest.status.name.toUpperCase()}\n"
-              "• **Items:** ${latest.items.length} item(s)\n"
-              "• **Total:** Rs. ${latest.total.toStringAsFixed(0)}\n"
-              "• **Address:** ${latest.address}\n\n"
-              "Expected delivery: 2 to 4 business days from placement date.",
-          isUser: false,
-          timestamp: DateTime.now(),
-          orderId: latest.id,
-          quickReplies: const [
-            "Delivery times",
-            "Order processing time",
-            "Stock inquiry",
-          ],
-        );
+      final quickRepliesList = <String>[];
+      if (localOrders.length > 1) {
+        for (final o in localOrders.where((o) => o.id != foundOrder!.id).take(2)) {
+          quickRepliesList.add("Track ${o.id}");
+        }
       }
+      quickRepliesList.addAll(const [
+        "What is the delivery time?",
+        "Processing time details",
+        "Contact support",
+      ]);
 
       return ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
-        text: "🔍 To track your order, please provide your **Order ID** (e.g. `ORD-1234` or `#1001`).\n\nYou can also view all your placed orders under **Account > My Orders**.",
+        text: "📦 **Order #${foundOrder.id} Status:**\n\n"
+            "• **Current Status:** ${statusMap[foundOrder.status] ?? foundOrder.status.name.toUpperCase()}\n"
+            "• **Account:** $userEmail\n"
+            "• **Recipient:** ${foundOrder.customerName}\n"
+            "• **Shipping Address:** ${foundOrder.address}\n"
+            "• **Items:** ${foundOrder.items.length} item(s)\n"
+            "• **Total Amount:** Rs. ${foundOrder.total.toStringAsFixed(0)}\n"
+            "• **Payment:** ${foundOrder.paymentMethod}\n\n"
+            "Expected delivery: 2 to 4 business days from placement date.$multipleOrdersNote",
         isUser: false,
         timestamp: DateTime.now(),
-        quickReplies: const [
-          "Delivery times",
-          "Processing time details",
-          "Stock availability",
-        ],
+        orderId: foundOrder.id,
+        quickReplies: quickRepliesList,
       );
     }
 
