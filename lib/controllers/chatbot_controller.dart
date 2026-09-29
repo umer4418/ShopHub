@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/chat_message.dart';
 import '../models/order.dart';
@@ -20,10 +21,12 @@ class ChatbotController extends GetxController {
   final RxList<ChatMessage> _messages = <ChatMessage>[].obs;
   final RxBool _isTyping = false.obs;
   final RxBool _isInitialized = false.obs;
+  String? _currentUserId;
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isTyping => _isTyping.value;
   bool get isInitialized => _isInitialized.value;
+  String? get currentUserId => _currentUserId;
 
   final List<String> defaultQuickPrompts = const [
     "How to reset password?",
@@ -36,13 +39,41 @@ class ChatbotController extends GetxController {
   ];
 
   void init() {
-    final history = _service.loadChatHistory();
+    _resolveCurrentUserId();
+    final history = _service.loadChatHistory(_currentUserId);
     if (history.isNotEmpty) {
       _messages.assignAll(history);
     } else {
       _addWelcomeMessage();
     }
     _isInitialized.value = true;
+    update();
+  }
+
+  void _resolveCurrentUserId() {
+    try {
+      final supaUser = Supabase.instance.client.auth.currentUser;
+      if (supaUser != null && supaUser.id.isNotEmpty) {
+        _currentUserId = supaUser.id;
+        return;
+      }
+    } catch (_) {}
+
+    if (Get.isRegistered<AuthController>()) {
+      _currentUserId = AuthController.to.currentUser?.id;
+    }
+  }
+
+  /// Refreshes state and context when active user changes (login, logout, switch).
+  void onUserChanged(String? newUserId) {
+    _currentUserId = newUserId;
+    final history = _service.loadChatHistory(newUserId);
+    if (history.isNotEmpty) {
+      _messages.assignAll(history);
+    } else {
+      _messages.clear();
+      _addWelcomeMessage();
+    }
     update();
   }
 
@@ -89,13 +120,22 @@ class ChatbotController extends GetxController {
     String? userPhone;
     List<ShopOrder> userOrders = const [];
 
+    // Prioritize authenticated Supabase user UUID
+    try {
+      final supaUser = Supabase.instance.client.auth.currentUser;
+      if (supaUser != null && supaUser.id.isNotEmpty) {
+        userId = supaUser.id;
+        userEmail = supaUser.email;
+      }
+    } catch (_) {}
+
     if (Get.isRegistered<AuthController>()) {
       final auth = AuthController.to;
       final currentUser = auth.currentUser;
       if (currentUser != null) {
-        userId = currentUser.id;
+        userId ??= currentUser.id;
         userName = currentUser.name;
-        userEmail = currentUser.email;
+        userEmail ??= currentUser.email;
         userPhone = currentUser.phone;
 
         if (Get.isRegistered<OrderController>()) {
@@ -104,6 +144,9 @@ class ChatbotController extends GetxController {
         }
       }
     }
+
+    userId ??= _currentUserId;
+    _currentUserId = userId ?? _currentUserId;
 
     final localProducts = Get.isRegistered<ProductController>()
         ? ProductController.to.products
@@ -123,7 +166,7 @@ class ChatbotController extends GetxController {
       );
 
       _messages.add(reply);
-      _service.saveChatHistory(_messages.toList());
+      _service.saveChatHistory(_messages.toList(), _currentUserId);
     } catch (e) {
       _messages.add(
         ChatMessage(
@@ -152,7 +195,7 @@ class ChatbotController extends GetxController {
 
   /// Clears the chat history and resets to the welcome screen.
   Future<void> clearChat() async {
-    await _service.clearChatHistory();
+    await _service.clearChatHistory(_currentUserId);
     _messages.clear();
     _addWelcomeMessage();
     update();

@@ -4,6 +4,7 @@ import '../models/user.dart';
 
 class MockCatalog {
   static const admin = ShopUser(
+    id: 'mock-admin-uuid',
     name: 'ShopHub Admin',
     email: 'admin@shophub.com',
     password: 'admin123',
@@ -12,6 +13,7 @@ class MockCatalog {
   );
 
   static const demoCustomer = ShopUser(
+    id: 'mock-customer-uuid',
     name: 'Ayesha Khan',
     email: 'customer@shophub.com',
     password: 'user123',

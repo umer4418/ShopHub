@@ -1,6 +1,6 @@
 import 'cart_item.dart';
 
-enum OrderStatus { placed, processing, shipped, delivered }
+enum OrderStatus { placed, processing, shipped, delivered, completed }
 
 extension OrderStatusLabel on OrderStatus {
   String get label => switch (this) {
@@ -8,6 +8,7 @@ extension OrderStatusLabel on OrderStatus {
         OrderStatus.processing => 'Processing',
         OrderStatus.shipped => 'Shipped',
         OrderStatus.delivered => 'Delivered',
+        OrderStatus.completed => 'Completed',
       };
 
   int get step => index;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shophub/app/routes/app_routes.dart';
 import 'package:shophub/controllers/auth_controller.dart';
 import 'package:shophub/controllers/cart_controller.dart';
@@ -21,6 +22,7 @@ void main() {
 
     setUp(() {
       Get.reset();
+      SharedPreferences.setMockInitialValues({});
       authCtrl = AuthController()..init();
       cartCtrl = CartController();
       orderCtrl = OrderController();

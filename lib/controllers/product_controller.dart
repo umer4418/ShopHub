@@ -20,6 +20,7 @@ class ProductController extends GetxController {
   final RxBool _isInitialized = false.obs;
 
   final RxString _searchQuery = ''.obs;
+  final RxnString _activeUserId = RxnString();
   final RxnString _filterCategoryId = RxnString();
   final RxDouble _minPrice = 0.0.obs;
   final RxDouble _maxPrice = 200000.0.obs;
@@ -31,6 +32,8 @@ class ProductController extends GetxController {
   bool get isInitialized => _isInitialized.value;
 
   String get searchQuery => _searchQuery.value;
+  RxString get searchQueryRx => _searchQuery;
+  String? get activeUserId => _activeUserId.value;
   String? get filterCategoryId => _filterCategoryId.value;
   double get minPrice => _minPrice.value;
   double get maxPrice => _maxPrice.value;
@@ -107,8 +110,42 @@ class ProductController extends GetxController {
     } catch (_) {}
   }
 
+  /// Switches active user and loads their isolated search query.
+  /// Clears in-memory search if [userId] is null.
+  void loadUserSearch(String? userId) {
+    if (userId == null || userId.isEmpty) {
+      clearSearchForLogout();
+      return;
+    }
+    _activeUserId.value = userId;
+    final saved = _productService.loadUserSearchLocally(userId) ?? '';
+    _searchQuery.value = saved;
+    update();
+  }
+
+  /// Clears local search state and resets filters when user logs out.
+  void clearSearchForLogout() {
+    _activeUserId.value = null;
+    _searchQuery.value = '';
+    _filterCategoryId.value = null;
+    _minPrice.value = 0.0;
+    _maxPrice.value = 200000.0;
+    _minRating.value = 0.0;
+    _sortBy.value = 'popular';
+    update();
+  }
+
+  /// Event hook for auth changes.
+  void onUserChanged(String? userId) {
+    loadUserSearch(userId);
+  }
+
   void setSearch(String q) {
     _searchQuery.value = q;
+    final uid = _activeUserId.value;
+    if (uid != null && uid.isNotEmpty) {
+      _productService.saveUserSearchLocally(uid, q);
+    }
     update();
   }
 
@@ -131,6 +168,10 @@ class ProductController extends GetxController {
 
   void resetFilters() {
     _searchQuery.value = '';
+    final uid = _activeUserId.value;
+    if (uid != null && uid.isNotEmpty) {
+      _productService.saveUserSearchLocally(uid, '');
+    }
     _filterCategoryId.value = null;
     _minPrice.value = 0;
     _maxPrice.value = 200000;

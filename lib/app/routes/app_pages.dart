@@ -6,6 +6,7 @@ import '../../admin/admin_login_screen.dart';
 import '../../admin/admin_orders_screen.dart';
 import '../../admin/admin_portal_screen.dart';
 import '../../admin/admin_product_form_screen.dart';
+import '../../admin/admin_support_screen.dart';
 import '../../screens/cart_screen.dart';
 import '../../screens/checkout_screen.dart';
 import '../../screens/home_shell.dart';
@@ -16,6 +17,7 @@ import '../../screens/products_screen.dart';
 import '../../screens/register_screen.dart';
 import '../../screens/wishlist_screen.dart';
 import '../../screens/chatbot_screen.dart';
+import '../../screens/support_chat_screen.dart';
 import 'app_routes.dart';
 
 /// ShopHub AppPages
@@ -66,6 +68,10 @@ abstract class AppPages {
       name: AppRoutes.chatbot,
       page: () => const ChatbotScreen(),
     ),
+    GetPage(
+      name: AppRoutes.supportChat,
+      page: () => const SupportChatScreen(),
+    ),
 
     // Admin Pages
     GetPage(
@@ -88,6 +94,10 @@ abstract class AppPages {
       name: AppRoutes.adminOrders,
       page: () => const AdminOrdersScreen(),
     ),
+    GetPage(
+      name: AppRoutes.adminSupport,
+      page: () => const AdminSupportScreen(),
+    ),
   ];
 
   /// Application route table for backwards compatibility
@@ -103,6 +113,7 @@ abstract class AppPages {
         AppRoutes.login: (_) => const LoginScreen(),
         AppRoutes.register: (_) => const RegisterScreen(),
         AppRoutes.chatbot: (_) => const ChatbotScreen(),
+        AppRoutes.supportChat: (_) => const SupportChatScreen(),
 
         // Admin Pages
         AppRoutes.adminDashboard: (_) => const AdminPortalScreen(),
@@ -110,6 +121,7 @@ abstract class AppPages {
         AppRoutes.adminProductForm: (_) => const AdminProductFormScreen(),
         AppRoutes.adminCategories: (_) => const AdminCategoriesScreen(),
         AppRoutes.adminOrders: (_) => const AdminOrdersScreen(),
+        AppRoutes.adminSupport: (_) => const AdminSupportScreen(),
       };
 
   /// Optional route generator for dynamic transitions or unknown routes

@@ -7,12 +7,14 @@ import '../controllers/auth_controller.dart';
 import '../controllers/coupon_controller.dart';
 import '../controllers/order_controller.dart';
 import '../controllers/product_controller.dart';
+import '../controllers/support_chat_controller.dart';
 import '../models/category.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
 import 'admin_login_screen.dart';
+import 'admin_support_screen.dart';
 
 const Color _kEmerald = Color(0xFF10B981);
 const Color _kEmeraldDark = Color(0xFF065F46);
@@ -29,7 +31,7 @@ class AdminPortalScreen extends StatefulWidget {
 }
 
 class _AdminPortalScreenState extends State<AdminPortalScreen> {
-  int _selectedTab = 0; // 0: Dashboard, 1: Orders, 2: Products, 3: Categories, 4: Coupons, 5: Users, 6: Payments, 7: Settings
+  int _selectedTab = 0; // 0: Dashboard, 1: Orders, 2: Products, 3: Categories, 4: Coupons, 5: Users, 6: Payments, 7: Support, 8: Settings
   String _orderSearchQuery = '';
   String _orderStatusFilter = 'all';
   String _orderPaymentFilter = 'all';
@@ -38,6 +40,17 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   String? _productCategoryFilter;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chatCtrl = Get.isRegistered<SupportChatController>()
+          ? Get.find<SupportChatController>()
+          : Get.put(SupportChatController());
+      chatCtrl.loadAdminConversations();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +88,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                         _buildCouponsTab(),
                         _buildUsersTab(),
                         _buildPaymentsTab(),
+                        const AdminSupportScreen(isEmbedded: true),
                         _buildSettingsTab(),
                       ],
                     ),
@@ -168,7 +182,29 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                 _navItem(4, Icons.local_offer_outlined, Icons.local_offer, 'Coupons & Promos'),
                 _navItem(5, Icons.people_outline, Icons.people, 'Customers & Users'),
                 _navItem(6, Icons.payment_outlined, Icons.payment, 'Payments & Subscriptions'),
-                _navItem(7, Icons.settings_outlined, Icons.settings, 'Settings'),
+                Builder(builder: (context) {
+                  final supportChatCtrl = Get.isRegistered<SupportChatController>()
+                      ? Get.find<SupportChatController>()
+                      : null;
+                  if (supportChatCtrl == null) {
+                    return _navItem(
+                      7,
+                      Icons.support_agent_outlined,
+                      Icons.support_agent,
+                      'Customer Support',
+                    );
+                  }
+                  return Obx(() {
+                    return _navItem(
+                      7,
+                      Icons.support_agent_outlined,
+                      Icons.support_agent,
+                      'Customer Support',
+                      badge: supportChatCtrl.totalAdminUnreadCount,
+                    );
+                  });
+                }),
+                _navItem(8, Icons.settings_outlined, Icons.settings, 'Settings'),
               ],
             ),
           ),
@@ -237,7 +273,13 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
     );
   }
 
-  Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _navItem(
+    int index,
+    IconData icon,
+    IconData activeIcon,
+    String label, {
+    int badge = 0,
+  }) {
     final isSelected = _selectedTab == index;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -261,6 +303,23 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
               fontSize: 13.5,
             ),
           ),
+          trailing: badge > 0
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$badge',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
           onTap: () {
             setState(() => _selectedTab = index);
             if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
@@ -284,6 +343,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
       'Coupons & Discount Codes',
       'Customers & User Data',
       'Payments & Subscriptions',
+      'Customer Support & Chats',
       'Store Settings',
     ];
 
@@ -1237,6 +1297,8 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
         return Colors.purple;
       case OrderStatus.delivered:
         return _kEmerald;
+      case OrderStatus.completed:
+        return const Color(0xFF0D9488);
     }
   }
 

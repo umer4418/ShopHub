@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../app/routes/app_routes.dart';
+import '../controllers/auth_controller.dart';
 import '../controllers/chatbot_controller.dart';
 import '../models/chat_message.dart';
 import '../theme/colors.dart';
@@ -57,6 +58,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void _handleSend([String? text]) {
     final toSend = text ?? _textCtrl.text;
     if (toSend.trim().isEmpty) return;
+
+    if (toSend.trim().toLowerCase() == 'chat with admin support') {
+      Navigator.pushNamed(context, AppRoutes.supportChat);
+      _textCtrl.clear();
+      return;
+    }
 
     _chatCtrl.sendMessage(toSend);
     _textCtrl.clear();
@@ -169,6 +176,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Live Admin Support',
+            icon: const Icon(Icons.support_agent_rounded, color: ShopColors.primary),
+            onPressed: () {
+              Navigator.pushNamed(context, AppRoutes.supportChat);
+            },
+          ),
           IconButton(
             tooltip: 'Clear conversation',
             icon: const Icon(Icons.delete_sweep_outlined, color: ShopColors.muted),
@@ -363,8 +377,12 @@ class _ChatMessageBubble extends StatelessWidget {
                 icon: const Icon(Icons.receipt_long, size: 14),
                 label: Text('Track Order #${message.orderId}'),
                 onPressed: () {
-                  // Direct navigation to orders
-                  Navigator.pushNamed(context, AppRoutes.adminOrders);
+                  final isAdmin = Get.isRegistered<AuthController>() && AuthController.to.isAdmin;
+                  if (isAdmin) {
+                    Navigator.pushNamed(context, AppRoutes.adminOrders);
+                  } else {
+                    Navigator.pushNamed(context, AppRoutes.orderConfirmation, arguments: message.orderId);
+                  }
                 },
               ),
             ),
@@ -560,6 +578,7 @@ class _QuickPromptsStrip extends StatelessWidget {
     "🛒 How to order",
     "🏷️ Stock availability",
     "📞 Customer support",
+    "💬 Admin support",
   ];
 
   @override

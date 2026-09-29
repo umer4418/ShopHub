@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -45,55 +46,426 @@ class ChatbotService {
     }
   }
 
+  final Map<String, List<ChatMessage>> _memoryChatHistory = {};
+
   Future<void> init([SharedPreferences? prefs]) async {
     _prefs = prefs ?? await SharedPreferences.getInstance();
   }
 
-  /// Loads persisted chat messages from local storage.
-  List<ChatMessage> loadChatHistory() {
-    final prefs = _prefs;
-    if (prefs == null) return [];
-
-    final raw = prefs.getString(_kChatHistory);
-    if (raw != null) {
-      try {
-        final decoded = jsonDecode(raw) as List;
-        return decoded
-            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        return [];
-      }
+  String _historyKey([String? userId]) {
+    if (userId != null && userId.isNotEmpty) {
+      return '${_kChatHistory}_$userId';
     }
-    return [];
+    return '${_kChatHistory}_guest';
   }
 
-  /// Saves chat messages to local storage.
-  Future<void> saveChatHistory(List<ChatMessage> messages) async {
+  /// Loads persisted chat messages from local storage (scoped to user).
+  List<ChatMessage> loadChatHistory([String? userId]) {
+    final key = _historyKey(userId);
     final prefs = _prefs;
-    if (prefs == null) return;
+    if (prefs != null) {
+      var raw = prefs.getString(key);
+      if (raw == null && userId == null) {
+        raw = prefs.getString(_kChatHistory);
+      }
+      if (raw != null) {
+        try {
+          final decoded = jsonDecode(raw) as List;
+          final loaded = decoded
+              .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+              .toList();
+          _memoryChatHistory[key] = loaded;
+          return loaded;
+        } catch (_) {
+          return _memoryChatHistory[key] ?? [];
+        }
+      }
+    }
+    return _memoryChatHistory[key] ?? [];
+  }
+
+  /// Saves chat messages to local storage (scoped to user).
+  Future<void> saveChatHistory(List<ChatMessage> messages, [String? userId]) async {
+    final key = _historyKey(userId);
+    _memoryChatHistory[key] = List.of(messages);
     try {
+      _prefs ??= await SharedPreferences.getInstance();
+      final prefs = _prefs;
+      if (prefs == null) return;
       // Keep up to last 50 messages to save space
       final trimmed = messages.length > 50
           ? messages.sublist(messages.length - 50)
           : messages;
       final encoded = jsonEncode(trimmed.map((e) => e.toJson()).toList());
-      await prefs.setString(_kChatHistory, encoded);
+      await prefs.setString(key, encoded);
     } catch (_) {}
   }
 
   /// Clears chat history in local storage.
-  Future<void> clearChatHistory() async {
-    final prefs = _prefs;
-    if (prefs == null) return;
-    await prefs.remove(_kChatHistory);
+  Future<void> clearChatHistory([String? userId]) async {
+    final key = _historyKey(userId);
+    _memoryChatHistory.remove(key);
+    if (userId == null) {
+      _memoryChatHistory.remove(_kChatHistory);
+    }
+    try {
+      final prefs = _prefs;
+      if (prefs == null) return;
+      await prefs.remove(key);
+      await prefs.remove(_kChatHistory);
+    } catch (_) {}
+  }
+
+  SupabaseClient? get _supabaseClient {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fetches orders for a specific user ID from Supabase Postgres.
+  Future<List<ShopOrder>> fetchUserOrdersFromSupabase(String userId) async {
+    final client = _supabaseClient;
+    if (client == null) return [];
+    try {
+      final res = await client
+          .from('orders')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      return (res as List)
+          .map((e) => ShopOrder.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching user orders from Supabase: $e');
+      return [];
+    }
+  }
+
+  /// Fetches an order by ID strictly belonging to [userId] from Supabase Postgres.
+  Future<ShopOrder?> fetchOrderByIdForUserFromSupabase({
+    required String orderId,
+    required String userId,
+  }) async {
+    final client = _supabaseClient;
+    if (client == null) return null;
+    try {
+      final cleanId = orderId.replaceAll('#', '').trim();
+      final res = await client
+          .from('orders')
+          .select()
+          .eq('id', cleanId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (res != null) {
+        return ShopOrder.fromJson(res);
+      }
+
+      final partialRes = await client
+          .from('orders')
+          .select()
+          .ilike('id', '%$cleanId%')
+          .eq('user_id', userId)
+          .limit(1);
+
+      if (partialRes.isNotEmpty) {
+        return ShopOrder.fromJson(partialRes.first);
+      }
+    } catch (e) {
+      debugPrint('Error fetching order by ID for user from Supabase: $e');
+    }
+    return null;
+  }
+
+  String? _getAuthenticatedUserId(String? fallbackUserId) {
+    if (fallbackUserId != null && fallbackUserId.isNotEmpty) {
+      return fallbackUserId;
+    }
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null && user.id.isNotEmpty) {
+        return user.id;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isOrderTrackingQuery(String text, {String? orderId}) {
+    if (orderId != null && orderId.isNotEmpty) return true;
+
+    final lower = text.toLowerCase().trim();
+
+    // General FAQ inquiries should not be intercepted as tracking
+    if ((lower.contains('how to') || lower.contains('how do i') || lower.contains('how can i')) &&
+        (lower.contains('order') || lower.contains('buy') || lower.contains('place'))) {
+      return false;
+    }
+    if (lower.contains('processing time') ||
+        lower.contains('dispatch time') ||
+        lower.contains('how long') ||
+        lower.contains('stock') ||
+        lower.contains('available') ||
+        lower.contains('restock')) {
+      return false;
+    }
+
+    if (extractOrderId(text) != null) return true;
+
+    final hasTrackKeyword = RegExp(r'\btrack(ing)?\b').hasMatch(lower);
+
+    return hasTrackKeyword ||
+        lower.contains('my order') ||
+        lower.contains('where is my order') ||
+        lower.contains('order status') ||
+        lower.contains('check order') ||
+        lower.contains('show my orders') ||
+        lower.contains('view my orders') ||
+        lower.contains('list my orders') ||
+        lower == 'orders' ||
+        lower == 'my orders';
+  }
+
+  /// Public order tracking handler adhering to Steps 1-4.
+  Future<ChatMessage> handleOrderTracking({
+    required String message,
+    String? userId,
+    String? userName,
+    String? userEmail,
+    String? orderId,
+    List<ShopOrder> localOrders = const [],
+  }) async {
+    final currentAuthId = _getAuthenticatedUserId(userId);
+    final effectiveEmail = userEmail?.trim();
+
+    // Step 1: Identify Logged-in User
+    final isLoggedIn = (currentAuthId != null && currentAuthId.isNotEmpty) ||
+        (effectiveEmail != null && effectiveEmail.isNotEmpty);
+
+    if (!isLoggedIn) {
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: "🔒 **Account Login Required:**\n\n"
+            "Please log into your ShopHub account so I can look up and track your personal orders.\n\n"
+            "For your security and privacy, ShopBot only tracks orders placed with your own authenticated account.",
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: const [
+          "How to reset password?",
+          "How to create account",
+          "What is the delivery time?",
+          "Payment options",
+        ],
+      );
+    }
+
+    // Step 2: Fetch User Orders strictly for authenticated user
+    List<ShopOrder> userOrders = [];
+    if (currentAuthId != null && hasSupabase) {
+      userOrders = await fetchUserOrdersFromSupabase(currentAuthId);
+    }
+
+    if (userOrders.isEmpty) {
+      userOrders = localOrders.where((o) {
+        if (currentAuthId != null && o.userId != null) {
+          return o.userId == currentAuthId;
+        }
+        if (effectiveEmail != null &&
+            effectiveEmail.isNotEmpty &&
+            o.customerEmail != null &&
+            o.customerEmail!.isNotEmpty) {
+          return o.customerEmail!.toLowerCase().trim() == effectiveEmail.toLowerCase();
+        }
+        if (effectiveEmail != null && o.customerEmail == null && o.userId == null) {
+          return true;
+        }
+        return false;
+      }).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+
+    // If user has no orders:
+    if (userOrders.isEmpty) {
+      final displayName = (userName != null && userName.isNotEmpty)
+          ? userName
+          : (effectiveEmail ?? 'Customer');
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: "📦 **No Orders Found:**\n\n"
+            "Hi $displayName! You have no orders yet under your account.\n\n"
+            "Once you place an order on ShopHub, you can track its live status, processing, and delivery right here!",
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: const [
+          "How to place an order?",
+          "Payment options",
+          "What is the delivery time?",
+        ],
+      );
+    }
+
+    final queryOrderId = orderId ?? extractOrderId(message);
+
+    // Step 3: Present the Orders & Ask which one to track
+    if (queryOrderId == null) {
+      final buffer = StringBuffer();
+      buffer.writeln("📦 **Your Orders:**\n");
+      buffer.writeln("Here are the orders found under your account:\n");
+      for (final o in userOrders) {
+        final dateStr = DateFormat('MMM dd, yyyy').format(o.createdAt);
+        final statusLabel = o.status.label;
+        buffer.writeln("• **Order #${o.id}** — $statusLabel — $dateStr — Rs. ${o.total.toStringAsFixed(0)}");
+      }
+      buffer.writeln("\nWhich order would you like to track? Please enter the order number or tap an option below.");
+
+      final quickReplies = userOrders.map((o) => "Order #${o.id}").take(5).toList();
+      quickReplies.add("What is the delivery time?");
+
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: buffer.toString(),
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: quickReplies,
+      );
+    }
+
+    // Step 4: Track the Selected Order & Verify Ownership
+    final cleanId = queryOrderId.replaceAll('#', '').trim();
+    ShopOrder? matchedOrder;
+
+    if (currentAuthId != null && hasSupabase) {
+      matchedOrder = await fetchOrderByIdForUserFromSupabase(
+        orderId: cleanId,
+        userId: currentAuthId,
+      );
+    }
+
+    if (matchedOrder == null) {
+      final lowerClean = cleanId.toLowerCase();
+      for (final o in userOrders) {
+        final oId = o.id.toLowerCase();
+        final oNum = oId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+        final cleanNum = lowerClean.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+        if (oId == lowerClean || oNum == cleanNum || oId.endsWith(lowerClean)) {
+          matchedOrder = o;
+          break;
+        }
+      }
+    }
+
+    // If order does NOT belong to the user
+    if (matchedOrder == null) {
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: "🔒 **Order Not Found In Your Account:**\n\n"
+            "I couldn't find that order (#$cleanId) in your account. Please check the order number and try again.",
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: userOrders.isNotEmpty
+            ? userOrders.map((o) => "Order #${o.id}").take(4).toList()
+            : const [
+                "Track my order",
+                "What is the delivery time?",
+                "Contact support",
+              ],
+      );
+    }
+
+    // If order DOES belong to the user, display detailed order tracking information
+    String statusEmoji;
+    switch (matchedOrder.status) {
+      case OrderStatus.placed:
+        statusEmoji = "📦 Placed (Order received & warehouse verification in progress)";
+        break;
+      case OrderStatus.processing:
+        statusEmoji = "⚙️ Processing (Being packed in warehouse)";
+        break;
+      case OrderStatus.shipped:
+        statusEmoji = "🚚 Shipped (Handed over to courier partner)";
+        break;
+      case OrderStatus.delivered:
+        statusEmoji = "✅ Delivered (Successfully delivered to doorstep)";
+        break;
+      case OrderStatus.completed:
+        statusEmoji = "🎉 Completed (Order verified and marked completed by customer)";
+        break;
+    }
+
+    final orderDateStr = DateFormat('MMM dd, yyyy – hh:mm a').format(matchedOrder.createdAt);
+    final estimatedDeliveryStr = DateFormat('MMM dd, yyyy').format(
+      matchedOrder.createdAt.add(const Duration(days: 3)),
+    );
+
+    final itemsList = matchedOrder.items.isNotEmpty
+        ? matchedOrder.items
+            .map((i) => "• **${i.product.name}** (x${i.quantity}) — Rs. ${(i.product.price * i.quantity).toStringAsFixed(0)}")
+            .join('\n')
+        : "• ${matchedOrder.items.length} item(s)";
+
+    final trackingText = "📦 **Order #${matchedOrder.id} Tracking Details:**\n\n"
+        "• **Order ID:** #${matchedOrder.id}\n"
+        "• **Order Date:** $orderDateStr\n"
+        "• **Current Status:** $statusEmoji\n"
+        "• **Total Amount:** Rs. ${matchedOrder.total.toStringAsFixed(0)}\n"
+        "• **Payment Method:** ${matchedOrder.paymentMethod}\n"
+        "• **Shipping Address:** ${matchedOrder.address}\n"
+        "• **Estimated Delivery:** 2 to 4 business days (by $estimatedDeliveryStr)\n\n"
+        "**Items in this Order:**\n$itemsList";
+
+    final otherOrders = userOrders.where((o) => o.id != matchedOrder!.id).take(2);
+    final trackingQuickReplies = <String>[];
+    for (final o in otherOrders) {
+      trackingQuickReplies.add("Order #${o.id}");
+    }
+    trackingQuickReplies.addAll(const [
+      "What is the delivery time?",
+      "Processing time details",
+      "Contact support",
+    ]);
+
+    return ChatMessage(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      text: trackingText,
+      isUser: false,
+      timestamp: DateTime.now(),
+      orderId: matchedOrder.id,
+      quickReplies: trackingQuickReplies,
+    );
+  }
+
+  /// Backwards-compatible alias for sendMessage
+  Future<ChatMessage> reply(
+    String message, {
+    String? userId,
+    String? userEmail,
+    String? userName,
+    String? userPhone,
+    String? orderId,
+    List<ShopOrder>? userOrders,
+    List<ChatMessage> history = const [],
+    List<Product> localProducts = const [],
+  }) {
+    return sendMessage(
+      message: message,
+      userId: userId,
+      userName: userName,
+      userEmail: userEmail,
+      userPhone: userPhone,
+      orderId: orderId,
+      history: history,
+      localOrders: userOrders ?? const [],
+      localProducts: localProducts,
+    );
   }
 
   /// Sends user message to the AI Chatbot.
-  /// 1. Filters out irrelevant off-topic queries immediately via domain guardrails.
-  /// 2. Tries invoking the Supabase Edge Function 'shopbot'.
-  /// 3. If Edge Function is unavailable or throws, calls Gemini AI directly with live order & product context.
-  /// 4. If network is offline, falls back to the local deterministic rule engine.
+  /// 1. If it's an order tracking query and Gemini is empty/disabled, uses deterministic order tracker.
+  /// 2. Calls Gemini AI directly with live order & product context if API key is active.
+  /// 3. If Gemini is unavailable, tries invoking Supabase Edge Function 'shopbot'.
+  /// 4. If offline, falls back to the deterministic local rule engine.
   Future<ChatMessage> sendMessage({
     required String message,
     String? userId,
@@ -106,6 +478,19 @@ class ChatbotService {
     List<Product> localProducts = const [],
   }) async {
     final cleanMessage = message.trim();
+
+    // Fast-path: Order tracking inquiries when Gemini key is not configured or invalidated
+    final isOrderQuery = _isOrderTrackingQuery(cleanMessage, orderId: orderId);
+    if (isOrderQuery && (geminiApiKey.isEmpty || _isKeyInvalid)) {
+      return await handleOrderTracking(
+        message: cleanMessage,
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
+        orderId: orderId,
+        localOrders: localOrders,
+      );
+    }
 
     // 1. Direct Gemini AI Call with Live Supabase Context Grounding (Primary AI Engine)
     if (geminiApiKey.isNotEmpty && !_isKeyInvalid) {
@@ -122,6 +507,18 @@ class ChatbotService {
       if (geminiMsg != null) {
         return geminiMsg;
       }
+    }
+
+    // Fallback for order tracking when Gemini fails or times out
+    if (isOrderQuery) {
+      return await handleOrderTracking(
+        message: cleanMessage,
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
+        orderId: orderId,
+        localOrders: localOrders,
+      );
     }
 
     // 2. Try invoking the Supabase Edge Function 'shopbot' (if Edge Function is deployed)
@@ -173,6 +570,7 @@ class ChatbotService {
     // 3. Local Deterministic Rule Fallback (if completely offline or Gemini rate-limited)
     return _generateLocalResponse(
       message: cleanMessage,
+      userId: userId,
       orderId: orderId,
       localOrders: localOrders,
       localProducts: localProducts,
@@ -264,18 +662,19 @@ class ChatbotService {
 
             // Find matching order in local context
             String? matchedId = explicitOrderId;
-            if (matchedId == null && localOrders.isNotEmpty && (message.toLowerCase().contains('order') || message.toLowerCase().contains('track'))) {
-              matchedId = localOrders.first.id;
+            final List<String> quickReplies;
+            if (matchedId != null) {
+              quickReplies = const ["What is the delivery time?", "Processing time details", "Contact support"];
+            } else if (localOrders.isNotEmpty && (message.toLowerCase().contains('order') || message.toLowerCase().contains('track'))) {
+              quickReplies = localOrders.map((o) => "Order #${o.id}").take(4).toList()..add("What is the delivery time?");
+            } else {
+              quickReplies = const [
+                "Track my order",
+                "How to reset password?",
+                "What is the delivery time?",
+                "Payment options",
+              ];
             }
-
-            final quickReplies = matchedId != null
-                ? const ["What is the delivery time?", "Processing time details", "Contact support"]
-                : const [
-                    "Track my order",
-                    "How to reset password?",
-                    "What is the delivery time?",
-                    "Payment options",
-                  ];
 
             return ChatMessage(
               id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -352,9 +751,19 @@ SHOPHUB APP KNOWLEDGE BASE:
   * Operating Hours: Mon-Sat, 9:00 AM - 6:00 PM.
 
 ORDER TRACKING GUIDELINES:
-- When a user asks about an order or provides an Order ID (like ORD-xxxx or SH-xxxx), check the [LINKED SUPABASE ORDERS DATA] below.
-- If order data is present, present the Order ID, status (Placed, Processing, Shipped, Delivered, Cancelled), recipient name, delivery address, items, and total amount with markdown bullet points and emojis.
-- If the Order ID is not in their records, inform them politely and suggest checking the Account > Orders section or double-checking the order number.
+- When a user asks "Track my order", "Where is my order", or asks about their orders WITHOUT providing a specific Order ID:
+  1. Check [LINKED SUPABASE ORDERS DATA] below.
+  2. If they have orders, list all their orders formatted like:
+     • Order #<id> — <Status> — <Date> — Rs. <total>
+  3. Ask: "Which order would you like to track? Please enter the order number or tap an option below."
+  4. NEVER automatically choose or track an order for them without asking first.
+  5. If the user has no orders, say: "You have no orders yet under your account."
+- When the user specifies an Order ID to track:
+  1. Check if that Order ID exists in [LINKED SUPABASE ORDERS DATA].
+  2. If it belongs to them, provide full details: Order ID, Date, Status with emoji indicator (📦 Placed, ⚙️ Processing, 🚚 Shipped, ✅ Delivered), Payment Method, Total Amount, Shipping Address, and Estimated Delivery.
+  3. If the order is NOT listed in [LINKED SUPABASE ORDERS DATA], say:
+     "I couldn't find that order in your account. Please check the order number and try again."
+     Never reveal, mention, or track an order belonging to another customer.
 ''';
 
     if (userEmail != null && userEmail.isNotEmpty) {
@@ -551,6 +960,7 @@ ORDER TRACKING GUIDELINES:
   /// Evaluates query locally to ensure continuous assistance even if offline or if Edge Function is still deploying.
   ChatMessage _generateLocalResponse({
     required String message,
+    String? userId,
     String? orderId,
     List<ShopOrder> localOrders = const [],
     List<Product> localProducts = const [],
@@ -719,6 +1129,7 @@ ORDER TRACKING GUIDELINES:
       return ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         text: "📞 **ShopHub Customer Support:**\n\n"
+            "• **Live Human Support:** Connect with our admin team directly via chat in real-time.\n"
             "• **Email:** support@shophub.com\n"
             "• **Toll-Free Helpline:** 0800-SHOPHUB (0800-7467482)\n"
             "• **Operating Hours:** Monday to Saturday, 9:00 AM – 6:00 PM\n"
@@ -726,6 +1137,7 @@ ORDER TRACKING GUIDELINES:
         isUser: false,
         timestamp: DateTime.now(),
         quickReplies: const [
+          "Chat with Admin Support",
           "Track my order",
           "How to reset password?",
           "Return & refund policy",
@@ -857,110 +1269,14 @@ ORDER TRACKING GUIDELINES:
     }
 
     // Order tracking inquiries
-    final queryOrderId = orderId ?? extractOrderId(message);
-
-    if (queryOrderId != null ||
-        lower.contains('track') ||
-        lower.contains('my order') ||
-        lower.contains('where is my order') ||
-        lower.contains('order status')) {
-      // 1. If user is NOT logged in:
-      if (userEmail == null || userEmail.isEmpty) {
-        return ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          text: "🔒 **Account Login Required:**\n\n"
-              "Please log into your ShopHub account so I can look up and track your personal orders.\n\n"
-              "For your security and privacy, ShopBot only tracks orders placed with your own registered email.",
-          isUser: false,
-          timestamp: DateTime.now(),
-          quickReplies: const [
-            "How to reset password?",
-            "How to create account",
-            "What is the delivery time?",
-            "Payment options",
-          ],
-        );
-      }
-
-      // 2. User IS logged in, but has placed NO orders:
-      if (localOrders.isEmpty) {
-        final displayName = (userName != null && userName.isNotEmpty) ? userName : userEmail;
-        return ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          text: "📦 **No Orders Found:**\n\n"
-              "Hi $displayName! There are currently no orders placed under your account (**$userEmail**).\n\n"
-              "Once you place an order on ShopHub, you can track its live status, processing, and delivery right here!",
-          isUser: false,
-          timestamp: DateTime.now(),
-          quickReplies: const [
-            "How to place an order?",
-            "Payment options",
-            "What is the delivery time?",
-          ],
-        );
-      }
-
-      // 3. User has personal orders:
-      ShopOrder? foundOrder;
-      if (queryOrderId != null) {
-        try {
-          foundOrder = localOrders.firstWhere(
-            (o) => o.id.toLowerCase() == queryOrderId.toLowerCase() ||
-                o.id.toLowerCase().contains(queryOrderId.toLowerCase()),
-          );
-        } catch (_) {
-          return ChatMessage(
-            id: DateTime.now().microsecondsSinceEpoch.toString(),
-            text: "🔒 **Order Not Found In Your Account:**\n\n"
-                "Order **#$queryOrderId** was not found under your logged-in account (**$userEmail**).\n\n"
-                "For your privacy and security, ShopBot only tracks orders placed with your registered email.",
-            isUser: false,
-            timestamp: DateTime.now(),
-            quickReplies: localOrders.map((o) => "Track ${o.id}").take(3).toList(),
-          );
-        }
-      } else {
-        foundOrder = localOrders.first;
-      }
-
-      final statusMap = {
-        OrderStatus.placed: 'Placed (Warehouse verification in progress)',
-        OrderStatus.processing: 'Processing (Being packed in warehouse)',
-        OrderStatus.shipped: 'Shipped (Handed over to courier partner)',
-        OrderStatus.delivered: 'Delivered (Successfully received)',
-      };
-
-      final multipleOrdersNote = localOrders.length > 1
-          ? "\n\n💡 *You have ${localOrders.length} orders on file.* Tap an order below or type its ID to track it."
-          : "";
-
-      final quickRepliesList = <String>[];
-      if (localOrders.length > 1) {
-        for (final o in localOrders.where((o) => o.id != foundOrder!.id).take(2)) {
-          quickRepliesList.add("Track ${o.id}");
-        }
-      }
-      quickRepliesList.addAll(const [
-        "What is the delivery time?",
-        "Processing time details",
-        "Contact support",
-      ]);
-
-      return ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        text: "📦 **Order #${foundOrder.id} Status:**\n\n"
-            "• **Current Status:** ${statusMap[foundOrder.status] ?? foundOrder.status.name.toUpperCase()}\n"
-            "• **Account:** $userEmail\n"
-            "• **Recipient:** ${foundOrder.customerName}\n"
-            "• **Shipping Address:** ${foundOrder.address}\n"
-            "• **Items:** ${foundOrder.items.length} item(s)\n"
-            "• **Total Amount:** Rs. ${foundOrder.total.toStringAsFixed(0)}\n"
-            "• **Payment:** ${foundOrder.paymentMethod}\n\n"
-            "Expected delivery: 2 to 4 business days from placement date.$multipleOrdersNote",
-        isUser: false,
-        timestamp: DateTime.now(),
-        orderId: foundOrder.id,
-        quickReplies: quickRepliesList,
+    if (_isOrderTrackingQuery(message, orderId: orderId)) {
+      return _generateLocalOrderResponse(
+        message: message,
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
+        orderId: orderId,
+        localOrders: localOrders,
       );
     }
 
@@ -982,6 +1298,197 @@ ORDER TRACKING GUIDELINES:
         "Order processing time",
         "When will out-of-stock items restock?",
       ],
+    );
+  }
+
+  ChatMessage _generateLocalOrderResponse({
+    required String message,
+    String? userId,
+    String? userName,
+    String? userEmail,
+    String? orderId,
+    List<ShopOrder> localOrders = const [],
+  }) {
+    final currentAuthId = _getAuthenticatedUserId(userId);
+    final effectiveEmail = userEmail?.trim();
+
+    // Step 1: Identify Logged-in User
+    final isLoggedIn = (currentAuthId != null && currentAuthId.isNotEmpty) ||
+        (effectiveEmail != null && effectiveEmail.isNotEmpty);
+
+    if (!isLoggedIn) {
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: "🔒 **Account Login Required:**\n\n"
+            "Please log into your ShopHub account so I can look up and track your personal orders.\n\n"
+            "For your security and privacy, ShopBot only tracks orders placed with your own authenticated account.",
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: const [
+          "How to reset password?",
+          "How to create account",
+          "What is the delivery time?",
+          "Payment options",
+        ],
+      );
+    }
+
+    // Step 2: Fetch and filter user orders strictly for authenticated user
+    final userOrders = localOrders.where((o) {
+      if (currentAuthId != null && o.userId != null) {
+        return o.userId == currentAuthId;
+      }
+      if (effectiveEmail != null &&
+          effectiveEmail.isNotEmpty &&
+          o.customerEmail != null &&
+          o.customerEmail!.isNotEmpty) {
+        return o.customerEmail!.toLowerCase().trim() == effectiveEmail.toLowerCase();
+      }
+      if (effectiveEmail != null && o.customerEmail == null && o.userId == null) {
+        return true;
+      }
+      return false;
+    }).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    // If user has no orders:
+    if (userOrders.isEmpty) {
+      final displayName = (userName != null && userName.isNotEmpty)
+          ? userName
+          : (effectiveEmail ?? 'Customer');
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: "📦 **No Orders Found:**\n\n"
+            "Hi $displayName! You have no orders yet under your account.\n\n"
+            "Once you place an order on ShopHub, you can track its live status, processing, and delivery right here!",
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: const [
+          "How to place an order?",
+          "Payment options",
+          "What is the delivery time?",
+        ],
+      );
+    }
+
+    final queryOrderId = orderId ?? extractOrderId(message);
+
+    // Step 3: Present the Orders & Ask which one to track
+    if (queryOrderId == null) {
+      final buffer = StringBuffer();
+      buffer.writeln("📦 **Your Orders:**\n");
+      buffer.writeln("Here are the orders found under your account:\n");
+      for (final o in userOrders) {
+        final dateStr = DateFormat('MMM dd, yyyy').format(o.createdAt);
+        final statusLabel = o.status.label;
+        buffer.writeln("• **Order #${o.id}** — $statusLabel — $dateStr — Rs. ${o.total.toStringAsFixed(0)}");
+      }
+      buffer.writeln("\nWhich order would you like to track? Please enter the order number or tap an option below.");
+
+      final quickReplies = userOrders.map((o) => "Order #${o.id}").take(5).toList();
+      quickReplies.add("What is the delivery time?");
+
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: buffer.toString(),
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: quickReplies,
+      );
+    }
+
+    // Step 4: Track the Selected Order & Verify Ownership
+    final cleanId = queryOrderId.replaceAll('#', '').trim();
+    ShopOrder? matchedOrder;
+    final lowerClean = cleanId.toLowerCase();
+
+    for (final o in userOrders) {
+      final oId = o.id.toLowerCase();
+      final oNum = oId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final cleanNum = lowerClean.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      if (oId == lowerClean || oNum == cleanNum || oId.endsWith(lowerClean)) {
+        matchedOrder = o;
+        break;
+      }
+    }
+
+    // If order does NOT belong to the user
+    if (matchedOrder == null) {
+      return ChatMessage(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        text: "🔒 **Order Not Found In Your Account:**\n\n"
+            "I couldn't find that order (#$cleanId) in your account. Please check the order number and try again.",
+        isUser: false,
+        timestamp: DateTime.now(),
+        quickReplies: userOrders.isNotEmpty
+            ? userOrders.map((o) => "Order #${o.id}").take(4).toList()
+            : const [
+                "Track my order",
+                "What is the delivery time?",
+                "Contact support",
+              ],
+      );
+    }
+
+    // If order DOES belong to the user, display detailed order tracking information
+    String statusEmoji;
+    switch (matchedOrder.status) {
+      case OrderStatus.placed:
+        statusEmoji = "📦 Placed (Order received & warehouse verification in progress)";
+        break;
+      case OrderStatus.processing:
+        statusEmoji = "⚙️ Processing (Being packed in warehouse)";
+        break;
+      case OrderStatus.shipped:
+        statusEmoji = "🚚 Shipped (Handed over to courier partner)";
+        break;
+      case OrderStatus.delivered:
+        statusEmoji = "✅ Delivered (Successfully delivered to doorstep)";
+        break;
+      case OrderStatus.completed:
+        statusEmoji = "🎉 Completed (Order verified and marked completed by customer)";
+        break;
+    }
+
+    final orderDateStr = DateFormat('MMM dd, yyyy – hh:mm a').format(matchedOrder.createdAt);
+    final estimatedDeliveryStr = DateFormat('MMM dd, yyyy').format(
+      matchedOrder.createdAt.add(const Duration(days: 3)),
+    );
+
+    final itemsList = matchedOrder.items.isNotEmpty
+        ? matchedOrder.items
+            .map((i) => "• **${i.product.name}** (x${i.quantity}) — Rs. ${(i.product.price * i.quantity).toStringAsFixed(0)}")
+            .join('\n')
+        : "• ${matchedOrder.items.length} item(s)";
+
+    final trackingText = "📦 **Order #${matchedOrder.id} Tracking Details:**\n\n"
+        "• **Order ID:** #${matchedOrder.id}\n"
+        "• **Order Date:** $orderDateStr\n"
+        "• **Current Status:** $statusEmoji\n"
+        "• **Total Amount:** Rs. ${matchedOrder.total.toStringAsFixed(0)}\n"
+        "• **Payment Method:** ${matchedOrder.paymentMethod}\n"
+        "• **Shipping Address:** ${matchedOrder.address}\n"
+        "• **Estimated Delivery:** 2 to 4 business days (by $estimatedDeliveryStr)\n\n"
+        "**Items in this Order:**\n$itemsList";
+
+    final otherOrders = userOrders.where((o) => o.id != matchedOrder!.id).take(2);
+    final trackingQuickReplies = <String>[];
+    for (final o in otherOrders) {
+      trackingQuickReplies.add("Order #${o.id}");
+    }
+    trackingQuickReplies.addAll(const [
+      "What is the delivery time?",
+      "Processing time details",
+      "Contact support",
+    ]);
+
+    return ChatMessage(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      text: trackingText,
+      isUser: false,
+      timestamp: DateTime.now(),
+      orderId: matchedOrder.id,
+      quickReplies: trackingQuickReplies,
     );
   }
 
@@ -1022,26 +1529,64 @@ ORDER TRACKING GUIDELINES:
     return false;
   }
 
-  /// Extracts an Order ID or code (e.g. ORD-1234, SH-1234, #1234) from text.
+  /// Extracts an Order ID or code (e.g. ORD-1234, SH-1234, #1234, #1001, 1001, UUID) from text.
   static String? extractOrderId(String text) {
-    // 1. Explicit ID format like ORD-9988, SH-1234, ORD1234
-    final idMatch = RegExp(r'\b((?:ORD|SH)(?:[-_][0-9a-zA-Z]+|\d+))\b', caseSensitive: false).firstMatch(text);
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
+
+    // 1. Explicit ID format like ORD-9988, SH-1234, ORD1234, SH8821, ORD-OTHER
+    // Requires a hyphen/underscore OR digits after prefix so words like "order" won't match!
+    final idMatch = RegExp(
+      r'\b((?:ORD|SH)(?:[-_][0-9a-zA-Z]+|\d+))\b',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
     if (idMatch != null) {
       return idMatch.group(1);
     }
-    // 2. Hash notation like #1234
-    final hashMatch = RegExp(r'#([0-9a-zA-Z_-]+)').firstMatch(text);
+
+    // 2. Hash notation like #1234 or #1001 or #ORD-1234
+    final hashMatch = RegExp(r'#([0-9a-zA-Z_-]+)').firstMatch(trimmed);
     if (hashMatch != null) {
       return hashMatch.group(1);
     }
-    // 3. Keyword followed by order code, e.g. "order 1234"
-    final keywordMatch = RegExp(r'\border\s*(?:id|#|number)?\s*[:#]?\s*([0-9a-zA-Z_-]+)\b', caseSensitive: false).firstMatch(text);
-    if (keywordMatch != null) {
-      final code = keywordMatch.group(1)!;
-      if (!['details', 'status', 'time', 'times', 'processing', 'tracking', 'history', 'my', 'the'].contains(code.toLowerCase())) {
+
+    // 3. Standard UUID format (36 chars with hyphens)
+    final uuidMatch = RegExp(
+      r'\b([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\b',
+    ).firstMatch(trimmed);
+    if (uuidMatch != null) {
+      return uuidMatch.group(1);
+    }
+
+    // 4. Keyword followed by order code, e.g. "order 1234", "track 1001", "track order 1001"
+    const stopWords = {
+      'details', 'status', 'time', 'times', 'processing', 'tracking',
+      'history', 'my', 'the', 'an', 'a', 'this', 'that', 'please',
+      'now', 'update', 'updates', 'info', 'information', 'here',
+      'all', 'orders', 'order', 'me', 'package', 'parcel',
+      'on', 'in', 'at', 'to', 'for', 'from', 'with', 'by', 'of',
+      'about', 'is', 'are', 'was', 'were', 'it', 'its', 'there',
+      'can', 'could', 'would', 'should', 'how', 'what', 'where',
+      'when', 'why', 'who', 'which', 'do', 'does', 'did', 'done',
+      'app', 'take', 'takes', 'item', 'items', 'product', 'products',
+    };
+
+    final keywordMatches = RegExp(
+      r'\b(?:track(?:ing)?\s+order|order|track(?:ing)?)\b\s*(?:id|#|number)?\s*[:#]?\s*([0-9a-zA-Z_-]+)\b',
+      caseSensitive: false,
+    ).allMatches(trimmed);
+    for (final m in keywordMatches) {
+      final code = m.group(1)!;
+      if (!stopWords.contains(code.toLowerCase())) {
         return code;
       }
     }
+
+    // 5. Standalone numeric code (e.g. "1001", "8821")
+    if (RegExp(r'^\d{3,10}$').hasMatch(trimmed)) {
+      return trimmed;
+    }
+
     return null;
   }
 }

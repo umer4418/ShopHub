@@ -4,6 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/mock_catalog.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import 'cart_controller.dart';
+import 'chatbot_controller.dart';
+import 'order_controller.dart';
+import 'product_controller.dart';
+import 'support_chat_controller.dart';
+import 'wishlist_controller.dart';
 
 /// Auth Controller
 /// Manages user authentication state, active sessions, and registration.
@@ -54,6 +60,44 @@ class AuthController extends GetxController {
       if (user != null) {
         _currentUser.value = user;
         update();
+        if (Get.isRegistered<CartController>()) {
+          Get.find<CartController>().loadUserCart(user.id ?? user.email);
+        }
+        if (Get.isRegistered<WishlistController>()) {
+          Get.find<WishlistController>().loadUserWishlist(user.id ?? user.email);
+        }
+        if (Get.isRegistered<ProductController>()) {
+          Get.find<ProductController>().onUserChanged(user.id ?? user.email);
+        }
+        if (Get.isRegistered<ChatbotController>()) {
+          Get.find<ChatbotController>().onUserChanged(user.id);
+        }
+        if (Get.isRegistered<OrderController>()) {
+          Get.find<OrderController>().onUserChanged(user.id);
+        }
+        if (Get.isRegistered<SupportChatController>()) {
+          Get.find<SupportChatController>().onUserChanged(user.id);
+        }
+      } else {
+        if (_currentUser.value != null) return;
+        if (Get.isRegistered<CartController>()) {
+          Get.find<CartController>().clearCartForLogout();
+        }
+        if (Get.isRegistered<WishlistController>()) {
+          Get.find<WishlistController>().clearWishlistForLogout();
+        }
+        if (Get.isRegistered<ProductController>()) {
+          Get.find<ProductController>().clearSearchForLogout();
+        }
+        if (Get.isRegistered<ChatbotController>()) {
+          Get.find<ChatbotController>().onUserChanged(null);
+        }
+        if (Get.isRegistered<OrderController>()) {
+          Get.find<OrderController>().onUserChanged(null);
+        }
+        if (Get.isRegistered<SupportChatController>()) {
+          Get.find<SupportChatController>().onUserChanged(null);
+        }
       }
     } catch (_) {}
   }
@@ -62,11 +106,51 @@ class AuthController extends GetxController {
     try {
       Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
         final session = data.session;
+        final event = data.event;
         if (session != null) {
           final user = await _authService.loadCurrentSession();
           if (user != null) {
             _currentUser.value = user;
             update();
+            if (Get.isRegistered<CartController>()) {
+              Get.find<CartController>().loadUserCart(user.id ?? session.user.id);
+            }
+            if (Get.isRegistered<WishlistController>()) {
+              Get.find<WishlistController>().loadUserWishlist(user.id ?? session.user.id);
+            }
+            if (Get.isRegistered<ProductController>()) {
+              Get.find<ProductController>().onUserChanged(user.id ?? session.user.id);
+            }
+            if (Get.isRegistered<ChatbotController>()) {
+              Get.find<ChatbotController>().onUserChanged(user.id ?? session.user.id);
+            }
+            if (Get.isRegistered<OrderController>()) {
+              Get.find<OrderController>().onUserChanged(user.id ?? session.user.id);
+            }
+            if (Get.isRegistered<SupportChatController>()) {
+              Get.find<SupportChatController>().onUserChanged(user.id ?? session.user.id);
+            }
+          }
+        } else if (event == AuthChangeEvent.signedOut || session == null) {
+          _currentUser.value = null;
+          update();
+          if (Get.isRegistered<CartController>()) {
+            Get.find<CartController>().clearCartForLogout();
+          }
+          if (Get.isRegistered<WishlistController>()) {
+            Get.find<WishlistController>().clearWishlistForLogout();
+          }
+          if (Get.isRegistered<ProductController>()) {
+            Get.find<ProductController>().clearSearchForLogout();
+          }
+          if (Get.isRegistered<ChatbotController>()) {
+            Get.find<ChatbotController>().onUserChanged(null);
+          }
+          if (Get.isRegistered<OrderController>()) {
+            Get.find<OrderController>().onUserChanged(null);
+          }
+          if (Get.isRegistered<SupportChatController>()) {
+            Get.find<SupportChatController>().onUserChanged(null);
           }
         }
       });
@@ -88,6 +172,29 @@ class AuthController extends GetxController {
       _currentUser.value = user;
       _isLoading.value = false;
       update();
+
+      // Reset and load user-specific cart & wishlist
+      if (Get.isRegistered<CartController>()) {
+        await Get.find<CartController>().loadUserCart(user.id ?? user.email);
+      }
+      if (Get.isRegistered<WishlistController>()) {
+        await Get.find<WishlistController>().loadUserWishlist(user.id ?? user.email);
+      }
+      if (Get.isRegistered<ProductController>()) {
+        Get.find<ProductController>().onUserChanged(user.id ?? user.email);
+      }
+
+      // Refresh chatbot context for newly logged in user
+      if (Get.isRegistered<ChatbotController>()) {
+        Get.find<ChatbotController>().onUserChanged(user.id);
+      }
+      if (Get.isRegistered<OrderController>()) {
+        Get.find<OrderController>().onUserChanged(user.id);
+      }
+      if (Get.isRegistered<SupportChatController>()) {
+        Get.find<SupportChatController>().onUserChanged(user.id);
+      }
+
       return null;
     } catch (e) {
       _isLoading.value = false;
@@ -120,6 +227,29 @@ class AuthController extends GetxController {
       _currentUser.value = user;
       _isLoading.value = false;
       update();
+
+      // Reset and load user-specific cart & wishlist
+      if (Get.isRegistered<CartController>()) {
+        await Get.find<CartController>().loadUserCart(user.id ?? user.email);
+      }
+      if (Get.isRegistered<WishlistController>()) {
+        await Get.find<WishlistController>().loadUserWishlist(user.id ?? user.email);
+      }
+      if (Get.isRegistered<ProductController>()) {
+        Get.find<ProductController>().onUserChanged(user.id ?? user.email);
+      }
+
+      // Refresh chatbot context for registered user
+      if (Get.isRegistered<ChatbotController>()) {
+        Get.find<ChatbotController>().onUserChanged(user.id);
+      }
+      if (Get.isRegistered<OrderController>()) {
+        Get.find<OrderController>().onUserChanged(user.id);
+      }
+      if (Get.isRegistered<SupportChatController>()) {
+        Get.find<SupportChatController>().onUserChanged(user.id);
+      }
+
       return null;
     } catch (e) {
       _isLoading.value = false;
@@ -135,6 +265,28 @@ class AuthController extends GetxController {
     update();
     try {
       await _authService.signInWithGoogle();
+      final user = await _authService.loadCurrentSession();
+      if (user != null) {
+        _currentUser.value = user;
+        if (Get.isRegistered<CartController>()) {
+          await Get.find<CartController>().loadUserCart(user.id ?? user.email);
+        }
+        if (Get.isRegistered<WishlistController>()) {
+          await Get.find<WishlistController>().loadUserWishlist(user.id ?? user.email);
+        }
+        if (Get.isRegistered<ProductController>()) {
+          Get.find<ProductController>().onUserChanged(user.id ?? user.email);
+        }
+        if (Get.isRegistered<ChatbotController>()) {
+          Get.find<ChatbotController>().onUserChanged(user.id);
+        }
+        if (Get.isRegistered<OrderController>()) {
+          Get.find<OrderController>().onUserChanged(user.id);
+        }
+        if (Get.isRegistered<SupportChatController>()) {
+          Get.find<SupportChatController>().onUserChanged(user.id);
+        }
+      }
       _isLoading.value = false;
       update();
       return null;
@@ -149,6 +301,28 @@ class AuthController extends GetxController {
   Future<void> logout() async {
     await _authService.signOut();
     _currentUser.value = null;
+    // Clear and reset local cart state
+    if (Get.isRegistered<CartController>()) {
+      Get.find<CartController>().clearCartForLogout();
+    }
+    // Clear and reset local wishlist state
+    if (Get.isRegistered<WishlistController>()) {
+      Get.find<WishlistController>().clearWishlistForLogout();
+    }
+    // Clear and reset home search state
+    if (Get.isRegistered<ProductController>()) {
+      Get.find<ProductController>().clearSearchForLogout();
+    }
+    // Clear and reset chatbot context on logout
+    if (Get.isRegistered<ChatbotController>()) {
+      Get.find<ChatbotController>().onUserChanged(null);
+    }
+    if (Get.isRegistered<OrderController>()) {
+      Get.find<OrderController>().onUserChanged(null);
+    }
+    if (Get.isRegistered<SupportChatController>()) {
+      Get.find<SupportChatController>().onUserChanged(null);
+    }
     update();
   }
 
@@ -167,6 +341,45 @@ class AuthController extends GetxController {
   /// For testing or direct assignment
   void setCurrentUser(ShopUser? user) {
     _currentUser.value = user;
+    if (user != null) {
+      if (Get.isRegistered<CartController>()) {
+        Get.find<CartController>().loadUserCart(user.id ?? user.email);
+      }
+      if (Get.isRegistered<WishlistController>()) {
+        Get.find<WishlistController>().loadUserWishlist(user.id ?? user.email);
+      }
+      if (Get.isRegistered<ProductController>()) {
+        Get.find<ProductController>().onUserChanged(user.id ?? user.email);
+      }
+      if (Get.isRegistered<ChatbotController>()) {
+        Get.find<ChatbotController>().onUserChanged(user.id);
+      }
+      if (Get.isRegistered<OrderController>()) {
+        Get.find<OrderController>().onUserChanged(user.id);
+      }
+      if (Get.isRegistered<SupportChatController>()) {
+        Get.find<SupportChatController>().onUserChanged(user.id);
+      }
+    } else {
+      if (Get.isRegistered<CartController>()) {
+        Get.find<CartController>().clearCartForLogout();
+      }
+      if (Get.isRegistered<WishlistController>()) {
+        Get.find<WishlistController>().clearWishlistForLogout();
+      }
+      if (Get.isRegistered<ProductController>()) {
+        Get.find<ProductController>().clearSearchForLogout();
+      }
+      if (Get.isRegistered<ChatbotController>()) {
+        Get.find<ChatbotController>().onUserChanged(null);
+      }
+      if (Get.isRegistered<OrderController>()) {
+        Get.find<OrderController>().onUserChanged(null);
+      }
+      if (Get.isRegistered<SupportChatController>()) {
+        Get.find<SupportChatController>().onUserChanged(null);
+      }
+    }
     update();
   }
 }

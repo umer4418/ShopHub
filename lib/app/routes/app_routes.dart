@@ -14,6 +14,7 @@ abstract class AppRoutes {
   static const String login = '/login';
   static const String register = '/register';
   static const String chatbot = '/chatbot';
+  static const String supportChat = '/support-chat';
 
   // Admin Routes
   static const String adminDashboard = '/admin';
@@ -21,4 +22,5 @@ abstract class AppRoutes {
   static const String adminProductForm = '/admin/product';
   static const String adminCategories = '/admin/categories';
   static const String adminOrders = '/admin/orders';
+  static const String adminSupport = '/admin/support';
 }

@@ -20,49 +20,58 @@ class WishlistScreen extends StatelessWidget {
     return Obx(() {
       final items = wishlistCtrl.getWishlistProducts(productCtrl.products);
 
+      Widget body;
+      if (wishlistCtrl.isLoading && items.isEmpty) {
+        body = const Center(
+          child: CircularProgressIndicator(color: ShopColors.primary),
+        );
+      } else if (items.isEmpty) {
+        body = Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.favorite_border,
+                  size: 72, color: ShopColors.muted),
+              const SizedBox(height: 12),
+              const Text('Save products you love'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.products),
+                child: const Text('Discover products'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        body = GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.62,
+          ),
+          itemCount: items.length,
+          itemBuilder: (_, i) {
+            final p = items[i];
+            return ProductCard(
+              product: p,
+              wished: true,
+              onWish: () => wishlistCtrl.toggleWishlist(p.id),
+              onTap: () => Navigator.pushNamed(
+                context,
+                AppRoutes.productDetail,
+                arguments: p.id,
+              ),
+            );
+          },
+        );
+      }
+
       return Scaffold(
         appBar: AppBar(title: const Text('Wishlist')),
-        body: items.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.favorite_border,
-                        size: 72, color: ShopColors.muted),
-                    const SizedBox(height: 12),
-                    const Text('Save products you love'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () =>
-                          Navigator.pushNamed(context, AppRoutes.products),
-                      child: const Text('Discover products'),
-                    ),
-                  ],
-                ),
-              )
-            : GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.62,
-                ),
-                itemCount: items.length,
-                itemBuilder: (_, i) {
-                  final p = items[i];
-                  return ProductCard(
-                    product: p,
-                    wished: true,
-                    onWish: () => wishlistCtrl.toggleWishlist(p.id),
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.productDetail,
-                      arguments: p.id,
-                    ),
-                  );
-                },
-              ),
+        body: body,
       );
     });
   }

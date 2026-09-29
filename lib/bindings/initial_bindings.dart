@@ -8,12 +8,14 @@ import '../controllers/order_controller.dart';
 import '../controllers/product_controller.dart';
 import '../controllers/wishlist_controller.dart';
 import '../controllers/chatbot_controller.dart';
+import '../controllers/support_chat_controller.dart';
 import '../services/auth_service.dart';
 import '../services/cart_service.dart';
 import '../services/order_service.dart';
 import '../services/product_service.dart';
 import '../services/wishlist_service.dart';
 import '../services/chatbot_service.dart';
+import '../services/support_chat_service.dart';
 
 /// Initial Bindings
 /// Configures and initializes all services and controllers for dependency injection via GetX.
@@ -24,6 +26,7 @@ class InitialBindings extends Bindings {
   final WishlistService wishlistService;
   final OrderService orderService;
   final ChatbotService chatbotService;
+  final SupportChatService supportChatService;
 
   final AuthController authController;
   final ProductController productController;
@@ -32,6 +35,7 @@ class InitialBindings extends Bindings {
   final OrderController orderController;
   final ChatbotController chatbotController;
   final CouponController couponController;
+  final SupportChatController supportChatController;
 
   InitialBindings._({
     required this.authService,
@@ -40,6 +44,7 @@ class InitialBindings extends Bindings {
     required this.wishlistService,
     required this.orderService,
     required this.chatbotService,
+    required this.supportChatService,
     required this.authController,
     required this.productController,
     required this.cartController,
@@ -47,6 +52,7 @@ class InitialBindings extends Bindings {
     required this.orderController,
     required this.chatbotController,
     required this.couponController,
+    required this.supportChatController,
   });
 
   @override
@@ -61,6 +67,7 @@ class InitialBindings extends Bindings {
     _put<WishlistService>(b.wishlistService);
     _put<OrderService>(b.orderService);
     _put<ChatbotService>(b.chatbotService);
+    _put<SupportChatService>(b.supportChatService);
 
     _put<AuthController>(b.authController);
     _put<ProductController>(b.productController);
@@ -69,6 +76,7 @@ class InitialBindings extends Bindings {
     _put<OrderController>(b.orderController);
     _put<ChatbotController>(b.chatbotController);
     _put<CouponController>(b.couponController);
+    _put<SupportChatController>(b.supportChatController);
   }
 
   static void _put<T>(T instance) {
@@ -101,13 +109,17 @@ class InitialBindings extends Bindings {
     final chatbotService = ChatbotService();
     await chatbotService.init(prefs);
 
-    final authController = AuthController(authService: authService)..init();
-    final productController = ProductController(productService: productService)..init();
-    final cartController = CartController(cartService: cartService)..init();
-    final wishlistController = WishlistController(wishlistService: wishlistService)..init();
-    final orderController = OrderController(orderService: orderService)..init();
-    final chatbotController = ChatbotController(service: chatbotService)..init();
-    final couponController = CouponController()..init(prefs);
+    final supportChatService = SupportChatService();
+    await supportChatService.init(prefs);
+
+    final authController = AuthController(authService: authService);
+    final productController = ProductController(productService: productService);
+    final cartController = CartController(cartService: cartService);
+    final wishlistController = WishlistController(wishlistService: wishlistService);
+    final orderController = OrderController(orderService: orderService);
+    final chatbotController = ChatbotController(service: chatbotService);
+    final couponController = CouponController();
+    final supportChatController = SupportChatController(service: supportChatService);
 
     final bindings = InitialBindings._(
       authService: authService,
@@ -116,6 +128,7 @@ class InitialBindings extends Bindings {
       wishlistService: wishlistService,
       orderService: orderService,
       chatbotService: chatbotService,
+      supportChatService: supportChatService,
       authController: authController,
       productController: productController,
       cartController: cartController,
@@ -123,9 +136,20 @@ class InitialBindings extends Bindings {
       orderController: orderController,
       chatbotController: chatbotController,
       couponController: couponController,
+      supportChatController: supportChatController,
     );
 
     _registerDependencies(bindings);
+
+    authController.init();
+    productController.init();
+    cartController.init();
+    wishlistController.init();
+    orderController.init();
+    chatbotController.init();
+    couponController.init(prefs);
+    supportChatController.init();
+
     return bindings;
   }
 
@@ -138,6 +162,7 @@ class InitialBindings extends Bindings {
     OrderController? orderController,
     ChatbotController? chatbotController,
     CouponController? couponController,
+    SupportChatController? supportChatController,
   }) {
     final aService = AuthService();
     final pService = ProductService();
@@ -145,6 +170,7 @@ class InitialBindings extends Bindings {
     final wService = WishlistService();
     final oService = OrderService();
     final cbService = ChatbotService();
+    final scService = SupportChatService();
 
     final aCtrl = authController ?? AuthController(authService: aService);
     final pCtrl = productController ?? ProductController(productService: pService);
@@ -153,6 +179,7 @@ class InitialBindings extends Bindings {
     final oCtrl = orderController ?? OrderController(orderService: oService);
     final cbCtrl = chatbotController ?? ChatbotController(service: cbService);
     final cpCtrl = couponController ?? (CouponController()..init());
+    final scCtrl = supportChatController ?? SupportChatController(service: scService);
 
     final bindings = InitialBindings._(
       authService: aService,
@@ -161,6 +188,7 @@ class InitialBindings extends Bindings {
       wishlistService: wService,
       orderService: oService,
       chatbotService: cbService,
+      supportChatService: scService,
       authController: aCtrl,
       productController: pCtrl,
       cartController: cCtrl,
@@ -168,6 +196,7 @@ class InitialBindings extends Bindings {
       orderController: oCtrl,
       chatbotController: cbCtrl,
       couponController: cpCtrl,
+      supportChatController: scCtrl,
     );
 
     _registerDependencies(bindings);

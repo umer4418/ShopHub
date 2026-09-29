@@ -45,7 +45,7 @@ class ShopStore extends ChangeNotifier {
 
   static const _kProducts = 'shophub.products';
   static const _kCategories = 'shophub.categories';
-  static const _kCart = 'shophub.cart';
+  static const _kLegacyCart = 'shophub.cart';
   static const _kWishlist = 'shophub.wishlist';
   static const _kOrders = 'shophub.orders';
   static const _kUsers = 'shophub.users';
@@ -61,6 +61,67 @@ class ShopStore extends ChangeNotifier {
   List<ShopOrder> _standaloneOrders = [];
   List<ShopUser> _standaloneUsers = [MockCatalog.admin, MockCatalog.demoCustomer];
   ShopUser? _standaloneCurrentUser;
+  final Map<String, List<CartItem>> _standaloneUserCarts = {};
+  final Map<String, List<String>> _standaloneUserWishlists = {};
+
+  String? get _standaloneUserCartKey {
+    if (_standaloneCurrentUser == null) return null;
+    return 'shophub.cart.${_standaloneCurrentUser!.id ?? _standaloneCurrentUser!.email}';
+  }
+
+  String? get _standaloneUserWishlistKey {
+    if (_standaloneCurrentUser == null) return null;
+    return 'shophub.wishlist.${_standaloneCurrentUser!.id ?? _standaloneCurrentUser!.email}';
+  }
+
+  void _loadStandaloneCart() {
+    final key = _standaloneUserCartKey;
+    if (key == null) {
+      _standaloneCart = [];
+      return;
+    }
+    if (_standaloneUserCarts.containsKey(key)) {
+      _standaloneCart = List.of(_standaloneUserCarts[key]!);
+      return;
+    }
+    final prefs = _prefs;
+    if (prefs != null) {
+      final cartJson = prefs.getString(key);
+      if (cartJson != null) {
+        try {
+          final decoded = (jsonDecode(cartJson) as List)
+              .map((e) => CartItem.fromJson(e as Map<String, dynamic>))
+              .toList();
+          _standaloneUserCarts[key] = decoded;
+          _standaloneCart = List.of(decoded);
+          return;
+        } catch (_) {}
+      }
+    }
+    _standaloneCart = [];
+  }
+
+  void _loadStandaloneWishlist() {
+    final key = _standaloneUserWishlistKey;
+    if (key == null) {
+      _standaloneWishlistIds = [];
+      return;
+    }
+    if (_standaloneUserWishlists.containsKey(key)) {
+      _standaloneWishlistIds = List.of(_standaloneUserWishlists[key]!);
+      return;
+    }
+    final prefs = _prefs;
+    if (prefs != null) {
+      final list = prefs.getStringList(key);
+      if (list != null) {
+        _standaloneUserWishlists[key] = List.of(list);
+        _standaloneWishlistIds = List.of(list);
+        return;
+      }
+    }
+    _standaloneWishlistIds = [];
+  }
 
   String _standaloneSearch = '';
   String? _standaloneCat;
@@ -113,6 +174,9 @@ class ShopStore extends ChangeNotifier {
       _authCtrl.setCurrentUser(val);
     } else {
       _standaloneCurrentUser = val;
+      _standaloneSearch = '';
+      _loadStandaloneCart();
+      _loadStandaloneWishlist();
       notifyListeners();
     }
   }
@@ -140,6 +204,11 @@ class ShopStore extends ChangeNotifier {
     final prefs = _prefs;
     if (prefs == null) return;
 
+    // Purge legacy shared cart key
+    try {
+      prefs.remove(_kLegacyCart);
+    } catch (_) {}
+
     final pJson = prefs.getString(_kProducts);
     if (pJson != null) {
       _standaloneProducts = (jsonDecode(pJson) as List)
@@ -152,13 +221,9 @@ class ShopStore extends ChangeNotifier {
           .map((e) => ShopCategory.fromJson(e as Map<String, dynamic>))
           .toList();
     }
-    final cartJson = prefs.getString(_kCart);
-    if (cartJson != null) {
-      _standaloneCart = (jsonDecode(cartJson) as List)
-          .map((e) => CartItem.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    _standaloneWishlistIds = prefs.getStringList(_kWishlist) ?? [];
+    try {
+      prefs.remove(_kWishlist);
+    } catch (_) {}
     final oJson = prefs.getString(_kOrders);
     if (oJson != null) {
       _standaloneOrders = (jsonDecode(oJson) as List)
@@ -180,26 +245,43 @@ class ShopStore extends ChangeNotifier {
         _standaloneCurrentUser = null;
       }
     }
+    _loadStandaloneCart();
+    _loadStandaloneWishlist();
   }
 
   Future<void> _persist() async {
     final prefs = _prefs;
     if (prefs == null) return;
-    await prefs.setString(_kProducts,
-        jsonEncode(_standaloneProducts.map((e) => e.toJson()).toList()));
-    await prefs.setString(_kCategories,
-        jsonEncode(_standaloneCategories.map((e) => e.toJson()).toList()));
-    await prefs.setString(
-        _kCart, jsonEncode(_standaloneCart.map((e) => e.toJson()).toList()));
-    await prefs.setStringList(_kWishlist, _standaloneWishlistIds);
-    await prefs.setString(_kOrders,
-        jsonEncode(_standaloneOrders.map((e) => e.toJson()).toList()));
-    await prefs.setString(_kUsers,
-        jsonEncode(_standaloneUsers.map((e) => e.toJson()).toList()));
-    if (_standaloneCurrentUser == null) {
+
+    final productsJson =
+        jsonEncode(_standaloneProducts.map((e) => e.toJson()).toList());
+    final categoriesJson =
+        jsonEncode(_standaloneCategories.map((e) => e.toJson()).toList());
+    final key = _standaloneUserCartKey;
+    final cartJson = key != null
+        ? jsonEncode(_standaloneCart.map((e) => e.toJson()).toList())
+        : null;
+    final wKey = _standaloneUserWishlistKey;
+    final ordersJson =
+        jsonEncode(_standaloneOrders.map((e) => e.toJson()).toList());
+    final usersJson =
+        jsonEncode(_standaloneUsers.map((e) => e.toJson()).toList());
+    final sessionEmail = _standaloneCurrentUser?.email;
+
+    await prefs.setString(_kProducts, productsJson);
+    await prefs.setString(_kCategories, categoriesJson);
+    if (key != null && cartJson != null) {
+      await prefs.setString(key, cartJson);
+    }
+    if (wKey != null) {
+      await prefs.setStringList(wKey, List.of(_standaloneWishlistIds));
+    }
+    await prefs.setString(_kOrders, ordersJson);
+    await prefs.setString(_kUsers, usersJson);
+    if (sessionEmail == null) {
       await prefs.remove(_kSession);
     } else {
-      await prefs.setString(_kSession, _standaloneCurrentUser!.email);
+      await prefs.setString(_kSession, sessionEmail);
     }
   }
 
@@ -310,12 +392,23 @@ class ShopStore extends ChangeNotifier {
     if (_cartCtrl != null) {
       _cartCtrl.addToCart(product, qty: qty);
     } else {
+      final uid = _standaloneCurrentUser?.id ?? _standaloneCurrentUser?.email;
       final i = _standaloneCart.indexWhere((c) => c.product.id == product.id);
       if (i >= 0) {
-        _standaloneCart[i] =
-            _standaloneCart[i].copyWith(quantity: _standaloneCart[i].quantity + qty);
+        _standaloneCart[i] = _standaloneCart[i].copyWith(
+          quantity: _standaloneCart[i].quantity + qty,
+          userId: uid,
+        );
       } else {
-        _standaloneCart.add(CartItem(product: product, quantity: qty));
+        _standaloneCart.add(CartItem(
+          product: product,
+          quantity: qty,
+          userId: uid,
+        ));
+      }
+      final key = _standaloneUserCartKey;
+      if (key != null) {
+        _standaloneUserCarts[key] = List.of(_standaloneCart);
       }
       _persist();
       notifyListeners();
@@ -326,13 +419,21 @@ class ShopStore extends ChangeNotifier {
     if (_cartCtrl != null) {
       _cartCtrl.setCartQty(productId, qty);
     } else {
+      final uid = _standaloneCurrentUser?.id ?? _standaloneCurrentUser?.email;
       if (qty <= 0) {
         _standaloneCart.removeWhere((c) => c.product.id == productId);
       } else {
         final i = _standaloneCart.indexWhere((c) => c.product.id == productId);
         if (i >= 0) {
-          _standaloneCart[i] = _standaloneCart[i].copyWith(quantity: qty);
+          _standaloneCart[i] = _standaloneCart[i].copyWith(
+            quantity: qty,
+            userId: uid,
+          );
         }
+      }
+      final key = _standaloneUserCartKey;
+      if (key != null) {
+        _standaloneUserCarts[key] = List.of(_standaloneCart);
       }
       _persist();
       notifyListeners();
@@ -344,6 +445,10 @@ class ShopStore extends ChangeNotifier {
       _cartCtrl.removeFromCart(productId);
     } else {
       _standaloneCart.removeWhere((c) => c.product.id == productId);
+      final key = _standaloneUserCartKey;
+      if (key != null) {
+        _standaloneUserCarts[key] = List.of(_standaloneCart);
+      }
       _persist();
       notifyListeners();
     }
@@ -353,6 +458,11 @@ class ShopStore extends ChangeNotifier {
     if (_cartCtrl != null) {
       _cartCtrl.clearCart();
     } else {
+      final key = _standaloneUserCartKey;
+      if (key != null) {
+        _standaloneUserCarts.remove(key);
+        _prefs?.remove(key);
+      }
       _standaloneCart.clear();
       _persist();
       notifyListeners();
@@ -367,6 +477,10 @@ class ShopStore extends ChangeNotifier {
         _standaloneWishlistIds.remove(productId);
       } else {
         _standaloneWishlistIds.add(productId);
+      }
+      final key = _standaloneUserWishlistKey;
+      if (key != null) {
+        _standaloneUserWishlists[key] = List.of(_standaloneWishlistIds);
       }
       _persist();
       notifyListeners();
@@ -425,6 +539,22 @@ class ShopStore extends ChangeNotifier {
     }
   }
 
+  Future<bool> markOrderAsCompleted(String id) async {
+    if (_orderCtrl != null) {
+      return await _orderCtrl.markOrderAsCompleted(id);
+    } else {
+      final i = _standaloneOrders.indexWhere((o) => o.id == id);
+      if (i >= 0 && _standaloneOrders[i].status == OrderStatus.delivered) {
+        _standaloneOrders[i] =
+            _standaloneOrders[i].copyWith(status: OrderStatus.completed);
+        _persist();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    }
+  }
+
   Future<String?> login(String email, String password) async {
     if (_authCtrl != null) {
       return await _authCtrl.login(email, password);
@@ -436,6 +566,9 @@ class ShopStore extends ChangeNotifier {
             u.password == password,
       );
       _standaloneCurrentUser = user;
+      _standaloneSearch = '';
+      _loadStandaloneCart();
+      _loadStandaloneWishlist();
       _persist();
       notifyListeners();
       return null;
@@ -472,6 +605,9 @@ class ShopStore extends ChangeNotifier {
     );
     _standaloneUsers.add(user);
     _standaloneCurrentUser = user;
+    _standaloneCart.clear();
+    _standaloneWishlistIds.clear();
+    _standaloneSearch = '';
     _persist();
     notifyListeners();
     return null;
@@ -482,6 +618,9 @@ class ShopStore extends ChangeNotifier {
       _authCtrl.logout();
     } else {
       _standaloneCurrentUser = null;
+      _standaloneCart.clear();
+      _standaloneWishlistIds.clear();
+      _standaloneSearch = '';
       _persist();
       notifyListeners();
     }
@@ -519,6 +658,10 @@ class ShopStore extends ChangeNotifier {
       _standaloneProducts.removeWhere((p) => p.id == id);
       _standaloneCart.removeWhere((c) => c.product.id == id);
       _standaloneWishlistIds.remove(id);
+      final key = _standaloneUserWishlistKey;
+      if (key != null) {
+        _standaloneUserWishlists[key] = List.of(_standaloneWishlistIds);
+      }
       _persist();
       notifyListeners();
     }

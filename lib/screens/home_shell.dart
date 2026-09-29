@@ -26,7 +26,10 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final cartCtrl = Get.find<CartController>();
     final pages = [
-      HomeScreen(onSeeCategories: () => setState(() => index = 1)),
+      HomeScreen(
+        onSeeCategories: () => setState(() => index = 1),
+        onSeeAccount: () => setState(() => index = 3),
+      ),
       const CategoriesScreen(),
       const CartScreen(),
       const ProfileScreen(),

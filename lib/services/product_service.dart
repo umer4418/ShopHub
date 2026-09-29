@@ -32,6 +32,33 @@ class ProductService {
     _prefs = prefs ?? await SharedPreferences.getInstance();
   }
 
+  String _userSearchKey(String userId) => 'shophub.search.$userId';
+
+  /// Loads search query cached locally for a specific [userId].
+  String? loadUserSearchLocally(String userId) {
+    final prefs = _prefs;
+    if (prefs == null || userId.isEmpty) return null;
+    return prefs.getString(_userSearchKey(userId));
+  }
+
+  /// Persists search query locally for a specific [userId].
+  Future<void> saveUserSearchLocally(String userId, String query) async {
+    final prefs = _prefs;
+    if (prefs == null || userId.isEmpty) return;
+    if (query.isEmpty) {
+      await prefs.remove(_userSearchKey(userId));
+    } else {
+      await prefs.setString(_userSearchKey(userId), query);
+    }
+  }
+
+  /// Clears local search query cache for a specific [userId].
+  Future<void> clearUserSearchLocally(String userId) async {
+    final prefs = _prefs;
+    if (prefs == null || userId.isEmpty) return;
+    await prefs.remove(_userSearchKey(userId));
+  }
+
   /// Synchronous local load for instant UI rendering without waiting for network.
   List<Product> loadProducts() {
     final prefs = _prefs;
