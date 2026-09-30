@@ -7,6 +7,7 @@ import '../models/cart_item.dart';
 import '../models/order.dart';
 import '../models/user.dart';
 import '../services/order_service.dart';
+import 'auth_controller.dart';
 
 /// Order Controller
 /// Manages checkout processing, order placement, order tracking, and status updates.
@@ -40,12 +41,7 @@ class OrderController extends GetxController {
     update();
 
     if (_orderService.hasSupabase) {
-      _orderService.fetchOrdersFromSupabase().then((remote) {
-        if (remote.isNotEmpty) {
-          _orders.assignAll(remote);
-          update();
-        }
-      });
+      refreshOrders();
     }
   }
 
@@ -72,6 +68,9 @@ class OrderController extends GetxController {
         total: 14999,
         createdAt: now.subtract(const Duration(hours: 3)),
         status: OrderStatus.processing,
+        stripePaymentId: 'pi_3Ptest8821AyeshaKhan',
+        paymentStatus: 'Paid',
+        deliveryFee: 0.0,
       ),
       ShopOrder(
         id: 'SH-8820',
@@ -88,6 +87,8 @@ class OrderController extends GetxController {
         total: 8499,
         createdAt: now.subtract(const Duration(hours: 7)),
         status: OrderStatus.placed,
+        paymentStatus: 'Pending',
+        deliveryFee: 0.0,
       ),
       ShopOrder(
         id: 'SH-8819',
@@ -104,6 +105,9 @@ class OrderController extends GetxController {
         total: 21500,
         createdAt: now.subtract(const Duration(days: 1, hours: 2)),
         status: OrderStatus.shipped,
+        stripePaymentId: 'pi_3Ptest8819FatimaTariq',
+        paymentStatus: 'Paid',
+        deliveryFee: 0.0,
       ),
       ShopOrder(
         id: 'SH-8818',
@@ -120,6 +124,9 @@ class OrderController extends GetxController {
         total: 11997,
         createdAt: now.subtract(const Duration(days: 3)),
         status: OrderStatus.delivered,
+        stripePaymentId: 'pi_3Ptest8818ZainMalik',
+        paymentStatus: 'Paid',
+        deliveryFee: 0.0,
       ),
       ShopOrder(
         id: 'SH-8817',
@@ -136,6 +143,8 @@ class OrderController extends GetxController {
         total: 5499,
         createdAt: now.subtract(const Duration(days: 5)),
         status: OrderStatus.delivered,
+        paymentStatus: 'Pending',
+        deliveryFee: 0.0,
       ),
       ShopOrder(
         id: 'SH-8816',
@@ -152,6 +161,9 @@ class OrderController extends GetxController {
         total: 18400,
         createdAt: now.subtract(const Duration(days: 12)),
         status: OrderStatus.delivered,
+        stripePaymentId: 'pi_3Ptest8816SaraSiddiqui',
+        paymentStatus: 'Paid',
+        deliveryFee: 0.0,
       ),
       ShopOrder(
         id: 'SH-8815',
@@ -217,23 +229,58 @@ class OrderController extends GetxController {
     }).toList();
   }
 
-  /// Fetches latest user orders from Supabase Postgres.
+  /// Fetches latest orders from Supabase Postgres.
+  /// If current user is an Admin, loads ALL authorized orders from Supabase.
+  /// If current user is a Customer, loads orders strictly belonging to that customer.
+  /// Supabase is the single source of truth.
   Future<void> refreshOrders([String? userId]) async {
-    final effectiveUserId = userId ?? () {
+    final authCtrl = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+    final currentUser = authCtrl?.currentUser;
+    final isAdmin = currentUser?.isAdmin ?? false;
+
+    final supaUser = () {
       try {
-        return Supabase.instance.client.auth.currentUser?.id;
+        return Supabase.instance.client.auth.currentUser;
       } catch (_) {
         return null;
       }
     }();
 
-    if (effectiveUserId != null && effectiveUserId.isNotEmpty) {
+    final effectiveUserId = userId ?? currentUser?.id ?? supaUser?.id;
+    final effectiveEmail = currentUser?.email ?? supaUser?.email;
+
+    if (isAdmin) {
+      // Super Admin: Load ALL orders from Supabase as single source of truth
       _isLoadingUserOrders.value = true;
       update();
       try {
-        final remote = await _orderService.fetchOrdersForUser(effectiveUserId);
+        final remote = await _orderService.fetchOrdersFromSupabase();
+        // Merge with existing orders to ensure any in-flight or just-placed order is preserved
+        final Map<String, ShopOrder> merged = {};
+        for (final o in remote) {
+          merged[o.id] = o;
+        }
+        for (final o in _orders) {
+          merged.putIfAbsent(o.id, () => o);
+        }
+        final sorted = merged.values.toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _orders.assignAll(sorted);
+        await _orderService.saveOrders(_orders);
+      } catch (e) {
+        debugPrint('Order fetch error in refreshOrders (admin): $e');
+      } finally {
+        _isLoadingUserOrders.value = false;
+        update();
+      }
+    } else if (effectiveUserId != null && effectiveUserId.isNotEmpty) {
+      // Customer: Fetch customer's own orders from Supabase
+      _isLoadingUserOrders.value = true;
+      update();
+      try {
+        final remote = await _orderService.fetchOrdersForUser(effectiveUserId, effectiveEmail);
         _userOrders.assignAll(remote);
-        // Merge into _orders for consistency with admin/global views
+        // Merge into _orders for consistency
         for (final o in remote) {
           final idx = _orders.indexWhere((existing) => existing.id == o.id);
           if (idx >= 0) {
@@ -243,16 +290,23 @@ class OrderController extends GetxController {
           }
         }
         await _orderService.saveOrders(_orders);
+      } catch (e) {
+        debugPrint('Order fetch error in refreshOrders (customer): $e');
       } finally {
         _isLoadingUserOrders.value = false;
         update();
       }
     } else {
-      final remote = await _orderService.fetchOrdersFromSupabase();
-      if (remote.isNotEmpty) {
-        _orders.assignAll(remote);
-        await _orderService.saveOrders(_orders);
-        update();
+      // Guest / unauthenticated initial sync
+      try {
+        final remote = await _orderService.fetchOrdersFromSupabase();
+        if (remote.isNotEmpty) {
+          _orders.assignAll(remote);
+          await _orderService.saveOrders(_orders);
+          update();
+        }
+      } catch (e) {
+        debugPrint('Order fetch error in refreshOrders (guest): $e');
       }
     }
   }
@@ -263,17 +317,40 @@ class OrderController extends GetxController {
     try {
       _ordersSubscription?.unsubscribe();
       final client = Supabase.instance.client;
-      _ordersSubscription = client
-          .channel('public:orders_${userId ?? 'all'}')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'orders',
-            callback: (payload) {
-              refreshOrders(userId);
-            },
-          )
-          .subscribe();
+      final channelName = 'public:orders_${userId ?? 'all'}_${DateTime.now().millisecondsSinceEpoch}';
+
+      final isUuid = userId != null &&
+          RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+              .hasMatch(userId.trim());
+
+      var channel = client.channel(channelName);
+      if (isUuid) {
+        channel = channel.onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'orders',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            debugPrint('Realtime order change detected for user $userId');
+            refreshOrders(userId);
+          },
+        );
+      } else {
+        channel = channel.onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'orders',
+          callback: (payload) {
+            debugPrint('Realtime order change detected (global)');
+            refreshOrders();
+          },
+        );
+      }
+      _ordersSubscription = channel.subscribe();
     } catch (e) {
       debugPrint('Realtime orders subscription error: $e');
     }
@@ -288,9 +365,18 @@ class OrderController extends GetxController {
 
   /// Called when authentication session changes (login, logout, switch).
   void onUserChanged(String? newUserId) {
+    final authCtrl = Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+    final user = authCtrl?.currentUser;
+    final isAdmin = user?.isAdmin ?? false;
+
     if (newUserId != null && newUserId.isNotEmpty) {
-      subscribeToOrders(newUserId);
-      refreshOrders(newUserId);
+      if (isAdmin) {
+        subscribeToOrders(null);
+        refreshOrders();
+      } else {
+        subscribeToOrders(newUserId);
+        refreshOrders(newUserId);
+      }
     } else {
       unsubscribeFromOrders();
       _userOrders.clear();
@@ -347,21 +433,34 @@ class OrderController extends GetxController {
     required double total,
     String? couponCode,
     double? discountAmount,
+    String? stripePaymentId,
+    String? paymentStatus,
+    double? deliveryFee,
   }) {
-    final effectiveUserId = userId ?? () {
+    final supaUser = () {
       try {
-        return Supabase.instance.client.auth.currentUser?.id;
+        return Supabase.instance.client.auth.currentUser;
       } catch (_) {
         return null;
       }
     }();
 
-    final id =
-        'SH${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    final effectiveUserId = userId ?? supaUser?.id;
+    final effectiveEmail = customerEmail ?? supaUser?.email;
+
+    final isStripe = paymentMethod.toLowerCase().contains('stripe') ||
+        (stripePaymentId != null && stripePaymentId.isNotEmpty);
+    final resolvedPaymentStatus =
+        paymentStatus ?? (isStripe ? 'Paid' : 'Pending');
+
+    final now = DateTime.now();
+    final millis = now.millisecondsSinceEpoch.toString().substring(5);
+    final micros = (now.microsecondsSinceEpoch % 1000).toString().padLeft(3, '0');
+    final id = 'SH$millis$micros';
     final order = ShopOrder(
       id: id,
       userId: effectiveUserId,
-      customerEmail: customerEmail,
+      customerEmail: effectiveEmail,
       customerName: name,
       phone: phone,
       address: address,
@@ -372,16 +471,24 @@ class OrderController extends GetxController {
       status: OrderStatus.placed,
       couponCode: couponCode,
       discountAmount: discountAmount,
+      stripePaymentId: stripePaymentId,
+      paymentStatus: resolvedPaymentStatus,
+      deliveryFee: deliveryFee ?? 0.0,
     );
 
     _orders.insert(0, order);
-    if (effectiveUserId != null) {
+    if (effectiveUserId != null && effectiveUserId.isNotEmpty) {
       _userOrders.insert(0, order);
     }
     _orderService.saveOrders(_orders);
     _orderService.syncPlaceOrder(order);
     update();
     return order;
+  }
+
+  /// Explicit async sync helper to guarantee order persistence in Supabase
+  Future<void> syncOrder(ShopOrder order) async {
+    await _orderService.syncPlaceOrder(order);
   }
 
   void updateOrderStatus(String id, OrderStatus status) {

@@ -24,13 +24,14 @@ DROP POLICY IF EXISTS "Admins can update orders" ON public.orders;
 DROP POLICY IF EXISTS "Admins can delete orders" ON public.orders;
 
 -- 4. SELECT Policy:
--- Authenticated users can ONLY view orders where user_id = auth.uid().
+-- Authenticated users can view their own orders (matching user_id or authenticated email).
 -- Super Admins (is_admin = true or role = 'admin' in public.profiles) can view ALL orders.
 CREATE POLICY "Users can view their own orders" 
   ON public.orders FOR SELECT 
   TO authenticated 
   USING (
     auth.uid() = user_id 
+    OR (customer_email IS NOT NULL AND customer_email = (auth.jwt() ->> 'email'))
     OR EXISTS (
       SELECT 1 FROM public.profiles 
       WHERE id = auth.uid() 
@@ -48,12 +49,24 @@ CREATE POLICY "Users can insert their own orders"
   );
 
 -- 6. UPDATE Policy:
--- Only Admins can update order status and details (e.g. mark shipped, delivered).
-CREATE POLICY "Admins can update orders" 
+-- Users can update their own orders (e.g. For marking delivered -> completed, upserts),
+-- and Super Admins can update any order.
+CREATE POLICY "Users and admins can update orders" 
   ON public.orders FOR UPDATE 
   TO authenticated 
   USING (
-    EXISTS (
+    auth.uid() = user_id 
+    OR (customer_email IS NOT NULL AND customer_email = (auth.jwt() ->> 'email'))
+    OR EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() 
+      AND (is_admin = true OR role = 'admin')
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id 
+    OR (customer_email IS NOT NULL AND customer_email = (auth.jwt() ->> 'email'))
+    OR EXISTS (
       SELECT 1 FROM public.profiles 
       WHERE id = auth.uid() 
       AND (is_admin = true OR role = 'admin')

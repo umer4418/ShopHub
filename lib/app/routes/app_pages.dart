@@ -14,6 +14,7 @@ import '../../screens/login_screen.dart';
 import '../../screens/order_confirmation_screen.dart';
 import '../../screens/product_detail_screen.dart';
 import '../../screens/products_screen.dart';
+import '../../screens/receipt_screen.dart';
 import '../../screens/register_screen.dart';
 import '../../screens/wishlist_screen.dart';
 import '../../screens/chatbot_screen.dart';
@@ -55,6 +56,10 @@ abstract class AppPages {
     GetPage(
       name: AppRoutes.orderConfirmation,
       page: () => const OrderConfirmationScreen(),
+    ),
+    GetPage(
+      name: AppRoutes.receipt,
+      page: () => const ReceiptScreen(),
     ),
     GetPage(
       name: AppRoutes.login,
@@ -110,6 +115,7 @@ abstract class AppPages {
         AppRoutes.wishlist: (_) => const WishlistScreen(),
         AppRoutes.checkout: (_) => const CheckoutScreen(),
         AppRoutes.orderConfirmation: (_) => const OrderConfirmationScreen(),
+        AppRoutes.receipt: (_) => const ReceiptScreen(),
         AppRoutes.login: (_) => const LoginScreen(),
         AppRoutes.register: (_) => const RegisterScreen(),
         AppRoutes.chatbot: (_) => const ChatbotScreen(),

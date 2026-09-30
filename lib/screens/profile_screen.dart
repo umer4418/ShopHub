@@ -460,6 +460,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 10),
                             Row(
                               children: [
+                                if (o.canGenerateReceipt) ...[
+                                  OutlinedButton.icon(
+                                    key: ValueKey('order_receipt_button_${o.id}'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.black87,
+                                      side: const BorderSide(color: Colors.black38),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.receipt_long, size: 16),
+                                    label: const Text(
+                                      'Receipt',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.receipt,
+                                      arguments: o,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                                 if (o.status == OrderStatus.delivered) ...[
                                   Expanded(
                                     child: ElevatedButton.icon(

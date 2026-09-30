@@ -45,6 +45,9 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.isRegistered<OrderController>()) {
+        Get.find<OrderController>().refreshOrders();
+      }
       final chatCtrl = Get.isRegistered<SupportChatController>()
           ? Get.find<SupportChatController>()
           : Get.put(SupportChatController());
@@ -404,6 +407,21 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
             const SizedBox(width: 12),
           ],
 
+          // Live Data Refresh Button
+          IconButton(
+            tooltip: 'Refresh Data',
+            icon: const Icon(Icons.refresh, color: ShopColors.primary, size: 20),
+            onPressed: () {
+              if (Get.isRegistered<OrderController>()) {
+                Get.find<OrderController>().refreshOrders();
+              }
+              if (Get.isRegistered<ProductController>()) {
+                Get.find<ProductController>().init();
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+
           // Visit Storefront Button
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
@@ -476,11 +494,13 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
       final lowStockProducts =
           productCtrl.products.where((p) => p.stock <= 5).toList();
 
-      return ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          // Period Selector Bar
-          Wrap(
+      return RefreshIndicator(
+        onRefresh: () => orderCtrl.refreshOrders(),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            // Period Selector Bar
+            Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 16,
@@ -847,8 +867,9 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
             ),
           ),
         ],
-      );
-    });
+      ),
+    );
+  });
   }
 
   Widget _periodButton(String label, String value) {
@@ -1067,91 +1088,122 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
         return matchesQuery && matchesStatus && matchesPayment;
       }).toList();
 
-      return ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          // Filter Bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                // Search Input
-                SizedBox(
-                  width: 260,
-                  height: 40,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search Order ID or Customer...',
-                      hintStyle: const TextStyle(fontSize: 12.5),
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      contentPadding: EdgeInsets.zero,
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      return RefreshIndicator(
+        onRefresh: () => orderCtrl.refreshOrders(),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            // Filter Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  // Search Input
+                  SizedBox(
+                    width: 260,
+                    height: 40,
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search Order ID or Customer...',
+                        hintStyle: const TextStyle(fontSize: 12.5),
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        contentPadding: EdgeInsets.zero,
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
                       ),
+                      onChanged: (v) => setState(() => _orderSearchQuery = v),
                     ),
-                    onChanged: (v) => setState(() => _orderSearchQuery = v),
                   ),
-                ),
 
-                // Status Filter
-                DropdownButton<String>(
-                  value: _orderStatusFilter,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('All Statuses')),
-                    DropdownMenuItem(value: 'placed', child: Text('Placed')),
-                    DropdownMenuItem(value: 'processing', child: Text('Processing')),
-                    DropdownMenuItem(value: 'shipped', child: Text('Shipped')),
-                    DropdownMenuItem(value: 'delivered', child: Text('Delivered')),
-                  ],
-                  onChanged: (v) => setState(() => _orderStatusFilter = v ?? 'all'),
-                ),
+                  // Status Filter
+                  DropdownButton<String>(
+                    value: _orderStatusFilter,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All Statuses')),
+                      DropdownMenuItem(value: 'placed', child: Text('Placed')),
+                      DropdownMenuItem(value: 'processing', child: Text('Processing')),
+                      DropdownMenuItem(value: 'shipped', child: Text('Shipped')),
+                      DropdownMenuItem(value: 'delivered', child: Text('Delivered')),
+                      DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                    ],
+                    onChanged: (v) => setState(() => _orderStatusFilter = v ?? 'all'),
+                  ),
 
-                // Payment Filter
-                DropdownButton<String>(
-                  value: _orderPaymentFilter,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('All Payment Methods')),
-                    DropdownMenuItem(value: 'stripe', child: Text('Stripe (Card)')),
-                    DropdownMenuItem(value: 'cod', child: Text('Cash on Delivery')),
-                  ],
-                  onChanged: (v) => setState(() => _orderPaymentFilter = v ?? 'all'),
-                ),
+                  // Payment Filter
+                  DropdownButton<String>(
+                    value: _orderPaymentFilter,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('All Payment Methods')),
+                      DropdownMenuItem(value: 'stripe', child: Text('Stripe (Card)')),
+                      DropdownMenuItem(value: 'cod', child: Text('Cash on Delivery')),
+                    ],
+                    onChanged: (v) => setState(() => _orderPaymentFilter = v ?? 'all'),
+                  ),
 
-                Text(
-                  '${filtered.length} Orders matching',
-                  style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-                ),
-              ],
+                  IconButton(
+                    tooltip: 'Refresh Orders',
+                    icon: const Icon(Icons.refresh, color: ShopColors.primary),
+                    onPressed: () => orderCtrl.refreshOrders(),
+                  ),
+
+                  Text(
+                    '${filtered.length} Orders matching',
+                    style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // Orders Table
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+            // Orders Table
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: _buildOrdersTable(filtered),
             ),
-            child: _buildOrdersTable(filtered),
-          ),
-        ],
+          ],
+        ),
       );
     });
+  }
+
+  DataColumn _tableHeader(
+    String label, {
+    bool numeric = false,
+    String? tooltip,
+    void Function(int, bool)? onSort,
+  }) {
+    return DataColumn(
+      numeric: numeric,
+      tooltip: tooltip,
+      onSort: onSort,
+      label: Flexible(
+        child: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+        ),
+      ),
+    );
   }
 
   Widget _buildOrdersTable(List<ShopOrder> orders) {
@@ -1178,14 +1230,14 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
         headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
         horizontalMargin: 16,
         columnSpacing: 24,
-        columns: const [
-          DataColumn(label: Text('Order ID', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Customer', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Payment', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+        columns: [
+          _tableHeader('Order ID'),
+          _tableHeader('Customer'),
+          _tableHeader('Date'),
+          _tableHeader('Payment'),
+          _tableHeader('Total'),
+          _tableHeader('Status'),
+          _tableHeader('Actions'),
         ],
         rows: orders.map((o) {
           final isStripe = o.paymentMethod.toLowerCase().contains('stripe') ||
@@ -1204,9 +1256,20 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text(o.phone, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(
+                      o.customerName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      o.phone,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -1340,6 +1403,8 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                               Text(
                                 'Order Details: ${current.id}',
                                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 DateFormat('dd MMM yyyy, hh:mm a').format(current.createdAt),
@@ -1378,7 +1443,13 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                                   children: [
                                     const Icon(Icons.person_outline, size: 16, color: Colors.grey),
                                     const SizedBox(width: 6),
-                                    Text('Name: ${current.customerName}', style: const TextStyle(fontSize: 13)),
+                                    Expanded(
+                                      child: Text(
+                                        'Name: ${current.customerName}',
+                                        style: const TextStyle(fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -1386,7 +1457,13 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                                   children: [
                                     const Icon(Icons.phone_outlined, size: 16, color: Colors.grey),
                                     const SizedBox(width: 6),
-                                    Text('Phone: ${current.phone}', style: const TextStyle(fontSize: 13)),
+                                    Expanded(
+                                      child: Text(
+                                        'Phone: ${current.phone}',
+                                        style: const TextStyle(fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -1405,7 +1482,13 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                                   children: [
                                     Icon(isStripe ? Icons.credit_card : Icons.local_shipping, size: 16, color: Colors.grey),
                                     const SizedBox(width: 6),
-                                    Text('Payment: ${current.paymentMethod}', style: const TextStyle(fontSize: 13)),
+                                    Expanded(
+                                      child: Text(
+                                        'Payment: ${current.paymentMethod}',
+                                        style: const TextStyle(fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -1450,7 +1533,12 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                                   errorBuilder: (_, _, _) => const Icon(Icons.image, size: 48),
                                 ),
                               ),
-                              title: Text(item.product.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                              title: Text(
+                                item.product.name,
+                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               subtitle: Text('Qty: ${item.quantity} × ${pkr.format(item.product.price)}'),
                               trailing: Text(
                                 pkr.format(item.product.price * item.quantity),
@@ -1464,16 +1552,22 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.local_offer, size: 16, color: Colors.green),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Coupon Applied (${current.couponCode}):',
-                                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
-                                    ),
-                                  ],
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.local_offer, size: 16, color: Colors.green),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          'Coupon Applied (${current.couponCode}):',
+                                          style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Text(
                                   '-${pkr.format(current.discountAmount ?? 0)}',
                                   style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.green),
@@ -1596,19 +1690,20 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
               child: DataTable(
                 headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
                 columnSpacing: 24,
-                columns: const [
-                  DataColumn(label: Text('Item', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Price', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Discount', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Stock Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                columns: [
+                  _tableHeader('Item'),
+                  _tableHeader('Category'),
+                  _tableHeader('Price'),
+                  _tableHeader('Discount'),
+                  _tableHeader('Stock Status'),
+                  _tableHeader('Actions'),
                 ],
                 rows: filtered.map((p) {
                   return DataRow(
                     cells: [
                       DataCell(
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(6),
@@ -2035,14 +2130,14 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
               child: DataTable(
                 headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
                 columnSpacing: 24,
-                columns: const [
-                  DataColumn(label: Text('Coupon Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Discount', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Min Spend', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Usage Count', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Valid Until', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Active Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+                columns: [
+                  _tableHeader('Coupon Code'),
+                  _tableHeader('Discount'),
+                  _tableHeader('Min Spend'),
+                  _tableHeader('Usage Count'),
+                  _tableHeader('Valid Until'),
+                  _tableHeader('Active Status'),
+                  _tableHeader('Actions'),
                 ],
                 rows: coupons.map((c) {
                   return DataRow(
@@ -2313,13 +2408,13 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
               child: DataTable(
                 headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
                 columnSpacing: 28,
-                columns: const [
-                  DataColumn(label: Text('User / Customer', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Email Address', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Phone Number', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Access Role', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Orders Placed', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('Total Spend', style: TextStyle(fontWeight: FontWeight.bold))),
+                columns: [
+                  _tableHeader('User / Customer'),
+                  _tableHeader('Email Address'),
+                  _tableHeader('Phone Number'),
+                  _tableHeader('Access Role'),
+                  _tableHeader('Orders Placed'),
+                  _tableHeader('Total Spend'),
                 ],
                 rows: users.map((u) {
                   final userOrders = orderCtrl.getUserOrders(
@@ -2334,6 +2429,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                     cells: [
                       DataCell(
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             CircleAvatar(
                               radius: 16,
@@ -2344,12 +2440,18 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Text(u.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            Flexible(
+                              child: Text(
+                                u.name,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       DataCell(Text(u.email)),
-                      DataCell(Text(u.phone.isNotEmpty ? u.phone : 'Not provided')),
+                      DataCell(Text(u.phone.isNotEmpty ? u.phone : 'Not provided', maxLines: 1, softWrap: false)),
                       DataCell(
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

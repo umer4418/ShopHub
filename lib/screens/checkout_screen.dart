@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -11,6 +13,7 @@ import '../utils/money.dart';
 import '../widgets/stripe_payment_sheet.dart';
 
 import '../controllers/coupon_controller.dart';
+import '../services/receipt_service.dart';
 import '../widgets/shop_product_image.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -102,11 +105,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         total: totalToPay,
         couponCode: appliedCoupon?.code,
         discountAmount: discount > 0 ? discount : null,
+        stripePaymentId: stripeResult.paymentIntentId,
+        paymentStatus: 'Paid',
+        deliveryFee: 0.0,
       );
       if (appliedCoupon != null) {
         couponCtrl.incrementUsageCount(appliedCoupon.code);
       }
       cartCtrl.clearCart();
+
+      // Automatically generate confirmed Stripe receipt in background
+      ReceiptService.to.generateReceiptPdf(order).catchError((_) => Uint8List(0));
+
+      // Ensure persisted to Supabase
+      await orderCtrl.syncOrder(order);
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(
@@ -129,11 +141,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         total: totalToPay,
         couponCode: appliedCoupon?.code,
         discountAmount: discount > 0 ? discount : null,
+        paymentStatus: 'Pending',
+        deliveryFee: 0.0,
       );
       if (appliedCoupon != null) {
         couponCtrl.incrementUsageCount(appliedCoupon.code);
       }
       cartCtrl.clearCart();
+
+      // Ensure persisted to Supabase
+      await orderCtrl.syncOrder(order);
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(

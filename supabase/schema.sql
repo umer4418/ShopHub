@@ -55,11 +55,17 @@ CREATE TABLE IF NOT EXISTS public.orders (
   coupon_code TEXT DEFAULT NULL,
   discount_amount NUMERIC DEFAULT NULL,
   status TEXT NOT NULL DEFAULT 'placed',
+  stripe_payment_id TEXT DEFAULT NULL,
+  payment_status TEXT NOT NULL DEFAULT 'Pending',
+  delivery_fee NUMERIC NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Migration helpers if tables already exist
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS stripe_payment_id TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'Pending';
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_fee NUMERIC DEFAULT 0;
 
 -- 5. Create Coupons Table
 CREATE TABLE IF NOT EXISTS public.coupons (
@@ -161,6 +167,7 @@ CREATE POLICY "Users can view their own orders"
   TO authenticated 
   USING (
     auth.uid() = user_id 
+    OR (customer_email IS NOT NULL AND customer_email = (auth.jwt() ->> 'email'))
     OR EXISTS (
       SELECT 1 FROM public.profiles 
       WHERE id = auth.uid() 
@@ -174,11 +181,22 @@ CREATE POLICY "Users can insert their own orders"
     auth.uid() = user_id OR auth.uid() IS NULL OR user_id IS NULL
   );
 
-CREATE POLICY "Admins can update orders" 
+CREATE POLICY "Users and admins can update orders" 
   ON public.orders FOR UPDATE 
   TO authenticated 
   USING (
-    EXISTS (
+    auth.uid() = user_id 
+    OR (customer_email IS NOT NULL AND customer_email = (auth.jwt() ->> 'email'))
+    OR EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() 
+      AND (is_admin = true OR role = 'admin')
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id 
+    OR (customer_email IS NOT NULL AND customer_email = (auth.jwt() ->> 'email'))
+    OR EXISTS (
       SELECT 1 FROM public.profiles 
       WHERE id = auth.uid() 
       AND (is_admin = true OR role = 'admin')

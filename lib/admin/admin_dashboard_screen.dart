@@ -26,8 +26,19 @@ class AdminDashboardScreen extends StatelessWidget {
       }
 
       return Scaffold(
-        appBar: AppBar(title: const Text('Admin dashboard')),
-        body: ListView(
+        appBar: AppBar(
+          title: const Text('Admin dashboard'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh Data',
+              onPressed: () => orderCtrl.refreshOrders(),
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: () => orderCtrl.refreshOrders(),
+          child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Wrap(
@@ -117,8 +128,9 @@ class AdminDashboardScreen extends StatelessWidget {
             ),
           ],
         ),
-      );
-    });
+      ),
+    );
+  });
   }
 }
 

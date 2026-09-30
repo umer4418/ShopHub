@@ -11,6 +11,7 @@ abstract class AppRoutes {
   static const String wishlist = '/wishlist';
   static const String checkout = '/checkout';
   static const String orderConfirmation = '/order';
+  static const String receipt = '/receipt';
   static const String login = '/login';
   static const String register = '/register';
   static const String chatbot = '/chatbot';

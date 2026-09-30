@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../app/routes/app_routes.dart';
 import '../controllers/order_controller.dart';
 import '../models/order.dart';
+import '../services/receipt_service.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
 
@@ -15,7 +16,8 @@ class OrderConfirmationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final id = (ModalRoute.of(context)?.settings.arguments ?? Get.arguments) as String;
+    final rawArgs = ModalRoute.of(context)?.settings.arguments ?? Get.arguments;
+    final String id = rawArgs is ShopOrder ? rawArgs.id : (rawArgs is String ? rawArgs : '');
     final orderCtrl = Get.find<OrderController>();
 
     return Obx(() {
@@ -90,10 +92,159 @@ class OrderConfirmationScreen extends StatelessWidget {
             const Text('Customer information',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-            Text(order.customerName),
-            Text(order.phone),
-            Text(order.address),
-            Text('Payment: ${order.paymentMethod}'),
+            Text('Name: ${order.customerName}'),
+            if (order.customerEmail != null && order.customerEmail!.isNotEmpty)
+              Text('Email: ${order.customerEmail}'),
+            Text('Phone: ${order.phone}'),
+            Text('Address: ${order.address}'),
+            Text('Payment Method: ${order.paymentMethod}'),
+            if (order.stripePaymentId != null &&
+                order.stripePaymentId!.isNotEmpty)
+              Text('Stripe Ref: ${order.stripePaymentId}'),
+            Text(
+              'Payment Status: ${order.paymentStatus ?? (order.isPaid ? 'Paid' : 'Pending')}',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: order.isPaid ? const Color(0xFF059669) : Colors.orange,
+              ),
+            ),
+            if (order.canGenerateReceipt) ...[
+              const SizedBox(height: 20),
+              Container(
+                key: const ValueKey('receipt_card_section'),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.black12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.receipt_long,
+                              color: Colors.black87, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Payment Receipt',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w800),
+                              ),
+                              Text(
+                                'Confirmed via Stripe • Official Black & White Receipt',
+                                style: TextStyle(
+                                    fontSize: 12, color: ShopColors.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        key: const ValueKey('view_receipt_button'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.visibility_outlined, size: 18),
+                        label: const Text(
+                          'View Receipt',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.receipt,
+                            arguments: order,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('download_receipt_button'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black87,
+                              side: const BorderSide(color: Colors.black26),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: const Icon(Icons.download_rounded, size: 16),
+                            label: const Text('Save / Download',
+                                style: TextStyle(fontSize: 12)),
+                            onPressed: () async {
+                              final path = await ReceiptService.to
+                                  .saveReceiptToFile(order);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(path != null
+                                        ? 'Receipt saved to $path'
+                                        : 'Receipt saved / downloaded.'),
+                                    backgroundColor: const Color(0xFF059669),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('share_receipt_button'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black87,
+                              side: const BorderSide(color: Colors.black26),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: const Icon(Icons.share_outlined, size: 16),
+                            label: const Text('Share Receipt',
+                                style: TextStyle(fontSize: 12)),
+                            onPressed: () =>
+                                ReceiptService.to.shareReceipt(order),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pushNamedAndRemoveUntil(
