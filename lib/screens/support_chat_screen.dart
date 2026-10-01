@@ -47,7 +47,7 @@ class _SupportChatScreenState extends State<SupportChatScreen>
       _initScreen();
     });
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       final chatCtrl = Get.isRegistered<SupportChatController>()
           ? Get.find<SupportChatController>()

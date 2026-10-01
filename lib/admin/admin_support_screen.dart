@@ -40,7 +40,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
       final chatCtrl = Get.isRegistered<SupportChatController>()
           ? Get.find<SupportChatController>()

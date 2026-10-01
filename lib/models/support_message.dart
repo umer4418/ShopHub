@@ -54,6 +54,7 @@ class SupportMessage {
         'id': id,
         'conversation_id': conversationId,
         'sender_id': senderId,
+        'sender_type': senderRole,
         'sender_role': senderRole,
         'message': message,
         'is_read': isRead,
@@ -65,7 +66,7 @@ class SupportMessage {
       id: json['id'] as String? ?? '',
       conversationId: (json['conversation_id'] ?? json['conversationId']) as String? ?? '',
       senderId: (json['sender_id'] ?? json['senderId']) as String? ?? '',
-      senderRole: (json['sender_role'] ?? json['senderRole']) as String? ?? 'customer',
+      senderRole: (json['sender_role'] ?? json['sender_type'] ?? json['senderRole'] ?? json['senderType']) as String? ?? 'customer',
       message: (json['message'] ?? json['text']) as String? ?? '',
       isRead: (json['is_read'] ?? json['isRead']) as bool? ?? false,
       createdAt: json['created_at'] != null

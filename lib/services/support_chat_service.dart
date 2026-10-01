@@ -34,6 +34,40 @@ class SupportChatService {
     _prefs = prefs ?? await SharedPreferences.getInstance();
   }
 
+  static final RegExp _uuidRegex = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  bool _isValidUuid(String? val) {
+    if (val == null || val.trim().isEmpty) return false;
+    return _uuidRegex.hasMatch(val.trim());
+  }
+
+  DateTime? _lastSchemaWarnTime;
+
+  void _logError(String context, dynamic error) {
+    final errStr = error.toString();
+    final isPgrst205 = errStr.contains('PGRST205') ||
+        errStr.contains('schema cache') ||
+        errStr.contains('Could not find the table');
+
+    if (isPgrst205) {
+      final now = DateTime.now();
+      if (_lastSchemaWarnTime == null ||
+          now.difference(_lastSchemaWarnTime!).inSeconds >= 60) {
+        _lastSchemaWarnTime = now;
+        debugPrint(
+          '⚠️ [Supabase Support System] Tables public.support_conversations / public.support_messages are not yet found in the Supabase schema cache (PostgREST PGRST205).\n'
+          '   Action required: Execute "supabase/support_chat.sql" in your Supabase Dashboard -> SQL Editor to create the tables and RLS policies.\n'
+          '   The app is safely maintaining all conversations and messages in resilient local storage in the meantime.',
+        );
+      }
+      return;
+    }
+
+    debugPrint('$context error: $error');
+  }
+
   Future<SharedPreferences> _ensurePrefs() async {
     _prefs ??= await SharedPreferences.getInstance();
     return _prefs!;
@@ -62,12 +96,27 @@ class SupportChatService {
       );
     }
 
+    final authId = _supabase.auth.currentUser?.id;
+    final effectiveCustomerId = _isValidUuid(customerId)
+        ? customerId
+        : (authId != null && _isValidUuid(authId) ? authId : null);
+
+    if (effectiveCustomerId == null) {
+      return _localGetOrCreateConversation(
+        customerId: customerId,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        orderId: cleanOrderId,
+        subject: cleanSubject,
+      );
+    }
+
     try {
       // 1. Check if an open conversation already exists for this customer (and order if specified)
       var query = _supabase
           .from('support_conversations')
           .select()
-          .eq('customer_id', customerId)
+          .eq('customer_id', effectiveCustomerId)
           .eq('status', 'open');
 
       if (cleanOrderId != null && cleanOrderId.isNotEmpty) {
@@ -188,7 +237,7 @@ class SupportChatService {
       _cacheLocalConversation(conv);
       return conv;
     } catch (e) {
-      debugPrint('Supabase getOrCreateConversation error: $e');
+      _logError('Supabase getOrCreateConversation', e);
       return _localGetOrCreateConversation(
         customerId: customerId,
         customerName: customerName,
@@ -238,9 +287,38 @@ class SupportChatService {
       return newConv;
     }
 
+    final authId = _supabase.auth.currentUser?.id;
+    final effectiveCustomerId = _isValidUuid(customerId)
+        ? customerId
+        : (authId != null && _isValidUuid(authId) ? authId : null);
+
+    if (effectiveCustomerId == null) {
+      final newConv = SupportConversation(
+        id: 'conv_${customerId}_${now.microsecondsSinceEpoch}_${++_idCounter}',
+        customerId: customerId,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        orderId: cleanOrderId,
+        subject: cleanSubject,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _cacheLocalConversation(newConv);
+      if (initialMessage != null && initialMessage.trim().isNotEmpty) {
+        await sendMessage(
+          conversationId: newConv.id,
+          senderId: customerId,
+          senderRole: 'customer',
+          text: initialMessage.trim(),
+        );
+      }
+      return newConv;
+    }
+
     try {
       final insertData = <String, dynamic>{
-        'customer_id': customerId,
+        'customer_id': effectiveCustomerId,
         'status': 'open',
         'created_at': now.toIso8601String(),
         'updated_at': now.toIso8601String(),
@@ -283,7 +361,7 @@ class SupportChatService {
 
       return conv;
     } catch (e) {
-      debugPrint('Supabase createTicket error: $e');
+      _logError('Supabase createTicket', e);
       final fallbackConv = SupportConversation(
         id: 'conv_${customerId}_${now.microsecondsSinceEpoch}_${++_idCounter}',
         customerId: customerId,
@@ -342,7 +420,7 @@ class SupportChatService {
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return result;
     } catch (e) {
-      debugPrint('Supabase fetch user conversations error: $e');
+      _logError('Supabase fetch user conversations', e);
       return localList;
     }
   }
@@ -416,7 +494,7 @@ class SupportChatService {
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       return result;
     } catch (e) {
-      debugPrint('Supabase fetch admin conversations error: $e');
+      _logError('Supabase fetch admin conversations', e);
       return localList;
     }
   }
@@ -456,7 +534,7 @@ class SupportChatService {
       _saveLocalMessages(conversationId, merged);
       return merged;
     } catch (e) {
-      debugPrint('Supabase fetch messages error: $e');
+      _logError('Supabase fetch messages', e);
       return localMsgs;
     }
   }
@@ -491,11 +569,34 @@ class SupportChatService {
       return localMsg;
     }
 
+    final authId = _supabase.auth.currentUser?.id;
+    final effectiveSenderId = _isValidUuid(senderId)
+        ? senderId
+        : (authId != null && _isValidUuid(authId) ? authId : null);
+
+    if (!_isValidUuid(conversationId) || effectiveSenderId == null) {
+      final localMsg = SupportMessage(
+        id: 'msg_${now.microsecondsSinceEpoch}_${++_idCounter}',
+        conversationId: conversationId,
+        senderId: senderId,
+        senderRole: senderRole,
+        message: cleanText,
+        isRead: false,
+        createdAt: now,
+      );
+      final current = _loadLocalMessages(conversationId);
+      current.add(localMsg);
+      _saveLocalMessages(conversationId, current);
+      _updateLocalConversationActivity(conversationId, cleanText, now);
+      return localMsg;
+    }
+
     try {
       // 1. Insert message
       final insertData = {
         'conversation_id': conversationId,
-        'sender_id': senderId,
+        'sender_id': effectiveSenderId,
+        'sender_type': senderRole,
         'sender_role': senderRole,
         'message': cleanText,
         'is_read': false,
@@ -531,7 +632,7 @@ class SupportChatService {
 
       return message;
     } catch (e) {
-      debugPrint('Supabase sendMessage error: $e');
+      _logError('Supabase sendMessage', e);
       // Local fallback on network failure
       final fallbackMsg = SupportMessage(
         id: 'msg_${now.microsecondsSinceEpoch}_${++_idCounter}',
@@ -583,7 +684,7 @@ class SupportChatService {
           .eq('sender_role', targetRole)
           .eq('is_read', false);
     } catch (e) {
-      debugPrint('Supabase markMessagesAsRead error: $e');
+      _logError('Supabase markMessagesAsRead', e);
     }
   }
 
@@ -605,7 +706,7 @@ class SupportChatService {
           })
           .eq('id', conversationId);
     } catch (e) {
-      debugPrint('Supabase closeConversation error: $e');
+      _logError('Supabase closeConversation', e);
     }
   }
 
@@ -626,7 +727,7 @@ class SupportChatService {
           })
           .eq('id', conversationId);
     } catch (e) {
-      debugPrint('Supabase reopenConversation error: $e');
+      _logError('Supabase reopenConversation', e);
     }
   }
 
@@ -653,7 +754,7 @@ class SupportChatService {
 
       return true;
     } catch (e) {
-      debugPrint('Supabase deleteConversation error: $e');
+      _logError('Supabase deleteConversation', e);
       return true;
     }
   }
@@ -687,7 +788,7 @@ class SupportChatService {
           .subscribe();
       return channel;
     } catch (e) {
-      debugPrint('Supabase Realtime messages subscription error: $e');
+      _logError('Supabase Realtime messages subscription', e);
       return null;
     }
   }
@@ -715,7 +816,7 @@ class SupportChatService {
           .subscribe();
       return channel;
     } catch (e) {
-      debugPrint('Supabase Realtime all messages error: $e');
+      _logError('Supabase Realtime all messages', e);
       return null;
     }
   }
@@ -739,7 +840,7 @@ class SupportChatService {
           .subscribe();
       return channel;
     } catch (e) {
-      debugPrint('Supabase Realtime conversations subscription error: $e');
+      _logError('Supabase Realtime conversations subscription', e);
       return null;
     }
   }
