@@ -13,6 +13,7 @@ import '../models/support_message.dart';
 /// with Row-Level Security, Supabase Realtime subscriptions, and local offline/test fallbacks.
 class SupportChatService {
   SharedPreferences? _prefs;
+  static int _idCounter = 0;
 
   SupabaseClient get _supabase => Supabase.instance.client;
 
@@ -45,9 +46,11 @@ class SupportChatService {
     String? customerName,
     String? customerEmail,
     String? orderId,
+    String? subject,
   }) async {
     await _ensurePrefs();
     final cleanOrderId = orderId?.replaceAll('#', '').trim();
+    final cleanSubject = subject?.trim();
 
     if (!hasSupabase) {
       return _localGetOrCreateConversation(
@@ -55,6 +58,7 @@ class SupportChatService {
         customerName: customerName,
         customerEmail: customerEmail,
         orderId: cleanOrderId,
+        subject: cleanSubject,
       );
     }
 
@@ -78,6 +82,7 @@ class SupportChatService {
         conv = conv.copyWith(
           customerName: customerName ?? conv.customerName,
           customerEmail: customerEmail ?? conv.customerEmail,
+          subject: cleanSubject ?? conv.subject,
         );
 
         // Update customer details on remote if they were previously null
@@ -127,6 +132,9 @@ class SupportChatService {
           if (customerEmail != null) {
             updateData['customer_email'] = customerEmail;
           }
+          if (cleanSubject != null && cleanSubject.isNotEmpty) {
+            updateData['subject'] = cleanSubject;
+          }
 
           await _supabase
               .from('support_conversations')
@@ -137,6 +145,7 @@ class SupportChatService {
             orderId: cleanOrderId,
             customerName: customerName,
             customerEmail: customerEmail,
+            subject: cleanSubject,
           );
           _cacheLocalConversation(conv);
           return conv;
@@ -160,6 +169,9 @@ class SupportChatService {
       if (cleanOrderId != null && cleanOrderId.isNotEmpty) {
         insertData['order_id'] = cleanOrderId;
       }
+      if (cleanSubject != null && cleanSubject.isNotEmpty) {
+        insertData['subject'] = cleanSubject;
+      }
 
       final created = await _supabase
           .from('support_conversations')
@@ -170,6 +182,7 @@ class SupportChatService {
       final conv = SupportConversation.fromJson(created).copyWith(
         customerName: customerName,
         customerEmail: customerEmail,
+        subject: cleanSubject,
       );
 
       _cacheLocalConversation(conv);
@@ -181,7 +194,117 @@ class SupportChatService {
         customerName: customerName,
         customerEmail: customerEmail,
         orderId: cleanOrderId,
+        subject: cleanSubject,
       );
+    }
+  }
+
+  /// Explicitly creates a brand new support ticket for [customerId] without reusing existing conversations.
+  /// Allows the customer to specify subject/topic and send an optional initial message.
+  Future<SupportConversation> createTicket({
+    required String customerId,
+    String? customerName,
+    String? customerEmail,
+    String? orderId,
+    String? subject,
+    String? initialMessage,
+  }) async {
+    await _ensurePrefs();
+    final cleanOrderId = orderId?.replaceAll('#', '').trim();
+    final cleanSubject = subject?.trim();
+    final now = DateTime.now();
+
+    if (!hasSupabase) {
+      final newConv = SupportConversation(
+        id: 'conv_${customerId}_${now.microsecondsSinceEpoch}_${++_idCounter}',
+        customerId: customerId,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        orderId: cleanOrderId,
+        subject: cleanSubject,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _cacheLocalConversation(newConv);
+      if (initialMessage != null && initialMessage.trim().isNotEmpty) {
+        await sendMessage(
+          conversationId: newConv.id,
+          senderId: customerId,
+          senderRole: 'customer',
+          text: initialMessage.trim(),
+        );
+      }
+      return newConv;
+    }
+
+    try {
+      final insertData = <String, dynamic>{
+        'customer_id': customerId,
+        'status': 'open',
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      };
+      if (customerName != null && customerName.isNotEmpty) {
+        insertData['customer_name'] = customerName;
+      }
+      if (customerEmail != null && customerEmail.isNotEmpty) {
+        insertData['customer_email'] = customerEmail;
+      }
+      if (cleanOrderId != null && cleanOrderId.isNotEmpty) {
+        insertData['order_id'] = cleanOrderId;
+      }
+      if (cleanSubject != null && cleanSubject.isNotEmpty) {
+        insertData['subject'] = cleanSubject;
+      }
+
+      final created = await _supabase
+          .from('support_conversations')
+          .insert(insertData)
+          .select()
+          .single();
+
+      final conv = SupportConversation.fromJson(created).copyWith(
+        customerName: customerName,
+        customerEmail: customerEmail,
+        subject: cleanSubject,
+      );
+
+      _cacheLocalConversation(conv);
+
+      if (initialMessage != null && initialMessage.trim().isNotEmpty) {
+        await sendMessage(
+          conversationId: conv.id,
+          senderId: customerId,
+          senderRole: 'customer',
+          text: initialMessage.trim(),
+        );
+      }
+
+      return conv;
+    } catch (e) {
+      debugPrint('Supabase createTicket error: $e');
+      final fallbackConv = SupportConversation(
+        id: 'conv_${customerId}_${now.microsecondsSinceEpoch}_${++_idCounter}',
+        customerId: customerId,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        orderId: cleanOrderId,
+        subject: cleanSubject,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+      );
+      _cacheLocalConversation(fallbackConv);
+      if (initialMessage != null && initialMessage.trim().isNotEmpty) {
+        await sendMessage(
+          conversationId: fallbackConv.id,
+          senderId: customerId,
+          senderRole: 'customer',
+          text: initialMessage.trim(),
+        );
+      }
+      return fallbackConv;
     }
   }
 
@@ -247,84 +370,26 @@ class SupportChatService {
         mergedMap[conv.id] = conv;
       }
 
+      // Single batch query for unread customer messages across all conversations
+      final Map<String, int> unreadCounts = {};
+      try {
+        final unreadRes = await _supabase
+            .from('support_messages')
+            .select('conversation_id')
+            .eq('sender_role', 'customer')
+            .eq('is_read', false);
+        for (final row in unreadRes as List) {
+          final cId = row['conversation_id'] as String?;
+          if (cId != null) {
+            unreadCounts[cId] = (unreadCounts[cId] ?? 0) + 1;
+          }
+        }
+      } catch (_) {}
+
       for (final item in res as List) {
         var conv = SupportConversation.fromJson(item as Map<String, dynamic>);
-
-        // Enrich customerName & customerEmail from profiles if missing
-        if (conv.customerName == null ||
-            conv.customerName!.isEmpty ||
-            conv.customerEmail == null ||
-            conv.customerEmail!.isEmpty) {
-          try {
-            final profile = await _supabase
-                .from('profiles')
-                .select('name, email')
-                .eq('id', conv.customerId)
-                .maybeSingle();
-
-            if (profile != null) {
-              conv = conv.copyWith(
-                customerName: conv.customerName ?? profile['name'] as String?,
-                customerEmail:
-                    conv.customerEmail ?? profile['email'] as String?,
-              );
-            }
-          } catch (_) {}
-        }
-
-        // Enrich with order status if linked to an order
-        if (conv.orderId != null && conv.orderId!.isNotEmpty) {
-          try {
-            final orderRes = await _supabase
-                .from('orders')
-                .select('status')
-                .eq('id', conv.orderId!)
-                .maybeSingle();
-            if (orderRes != null) {
-              conv = conv.copyWith(orderStatus: orderRes['status'] as String?);
-            }
-          } catch (_) {}
-        }
-
-        // Count unread customer messages
-        try {
-          final unreadRes = await _supabase
-              .from('support_messages')
-              .select('id')
-              .eq('conversation_id', conv.id)
-              .eq('sender_role', 'customer')
-              .eq('is_read', false);
-          final remoteUnread = (unreadRes as List).length;
-          final localUnread = _loadLocalMessages(conv.id)
-              .where((m) => m.senderRole == 'customer' && !m.isRead)
-              .length;
-          conv = conv.copyWith(
-            unreadCount:
-                remoteUnread > localUnread ? remoteUnread : localUnread,
-          );
-        } catch (_) {
-          final localUnread = _loadLocalMessages(conv.id)
-              .where((m) => m.senderRole == 'customer' && !m.isRead)
-              .length;
-          conv = conv.copyWith(unreadCount: localUnread);
-        }
-
-        // Fetch last message snippet if null or empty
-        if (conv.lastMessage == null || conv.lastMessage!.isEmpty) {
-          try {
-            final lastMsgRes = await _supabase
-                .from('support_messages')
-                .select('message')
-                .eq('conversation_id', conv.id)
-                .order('created_at', ascending: false)
-                .limit(1);
-            if ((lastMsgRes as List).isNotEmpty) {
-              conv = conv.copyWith(
-                lastMessage: lastMsgRes.first['message'] as String?,
-              );
-            }
-          } catch (_) {}
-        }
+        final unread = unreadCounts[conv.id] ?? 0;
+        conv = conv.copyWith(unreadCount: unread);
 
         // Merge with local state to preserve newest data
         if (mergedMap.containsKey(conv.id)) {
@@ -411,7 +476,7 @@ class SupportChatService {
 
     if (!hasSupabase) {
       final localMsg = SupportMessage(
-        id: 'msg_${now.millisecondsSinceEpoch}',
+        id: 'msg_${now.microsecondsSinceEpoch}_${++_idCounter}',
         conversationId: conversationId,
         senderId: senderId,
         senderRole: senderRole,
@@ -469,7 +534,7 @@ class SupportChatService {
       debugPrint('Supabase sendMessage error: $e');
       // Local fallback on network failure
       final fallbackMsg = SupportMessage(
-        id: 'msg_${now.millisecondsSinceEpoch}',
+        id: 'msg_${now.microsecondsSinceEpoch}_${++_idCounter}',
         conversationId: conversationId,
         senderId: senderId,
         senderRole: senderRole,
@@ -522,10 +587,12 @@ class SupportChatService {
     }
   }
 
-  /// Closes a conversation in Supabase.
+  /// Closes a conversation in Supabase and records closed_at timestamp.
+  /// Never deletes messages or the conversation.
   Future<void> closeConversation(String conversationId) async {
     await _ensurePrefs();
-    _updateLocalConversationStatus(conversationId, 'closed');
+    final now = DateTime.now();
+    _updateLocalConversationStatus(conversationId, 'closed', closedAt: now);
     if (!hasSupabase) return;
 
     try {
@@ -533,11 +600,61 @@ class SupportChatService {
           .from('support_conversations')
           .update({
             'status': 'closed',
-            'updated_at': DateTime.now().toIso8601String(),
+            'closed_at': now.toIso8601String(),
+            'updated_at': now.toIso8601String(),
           })
           .eq('id', conversationId);
     } catch (e) {
       debugPrint('Supabase closeConversation error: $e');
+    }
+  }
+
+  /// Reopens a closed conversation in Supabase so customer and admin can resume communication.
+  Future<void> reopenConversation(String conversationId) async {
+    await _ensurePrefs();
+    final now = DateTime.now();
+    _updateLocalConversationStatus(conversationId, 'open', closedAt: null);
+    if (!hasSupabase) return;
+
+    try {
+      await _supabase
+          .from('support_conversations')
+          .update({
+            'status': 'open',
+            'closed_at': null,
+            'updated_at': now.toIso8601String(),
+          })
+          .eq('id', conversationId);
+    } catch (e) {
+      debugPrint('Supabase reopenConversation error: $e');
+    }
+  }
+
+  /// Explicitly deletes a conversation and all its messages permanently from Supabase and local storage.
+  /// Must only be triggered upon explicit user confirmation.
+  Future<bool> deleteConversation(String conversationId) async {
+    await _ensurePrefs();
+    _deleteLocalConversation(conversationId);
+
+    if (!hasSupabase) return true;
+
+    try {
+      // 1. Delete all messages for this conversation
+      await _supabase
+          .from('support_messages')
+          .delete()
+          .eq('conversation_id', conversationId);
+
+      // 2. Delete the conversation record
+      await _supabase
+          .from('support_conversations')
+          .delete()
+          .eq('id', conversationId);
+
+      return true;
+    } catch (e) {
+      debugPrint('Supabase deleteConversation error: $e');
+      return true;
     }
   }
 
@@ -636,6 +753,7 @@ class SupportChatService {
     String? customerName,
     String? customerEmail,
     String? orderId,
+    String? subject,
   }) {
     final list = _loadLocalConversations(customerId);
 
@@ -647,11 +765,12 @@ class SupportChatService {
       orElse: () {
         final now = DateTime.now();
         final newConv = SupportConversation(
-          id: 'conv_${customerId}_${now.millisecondsSinceEpoch}',
+          id: 'conv_${customerId}_${now.microsecondsSinceEpoch}_${++_idCounter}',
           customerId: customerId,
           customerName: customerName,
           customerEmail: customerEmail,
           orderId: orderId,
+          subject: subject,
           status: 'open',
           createdAt: now,
           updatedAt: now,
@@ -666,6 +785,7 @@ class SupportChatService {
       customerName: customerName ?? match.customerName,
       customerEmail: customerEmail ?? match.customerEmail,
       orderId: (orderId != null && orderId.isNotEmpty) ? orderId : match.orderId,
+      subject: subject ?? match.subject,
     );
   }
 
@@ -798,7 +918,11 @@ class SupportChatService {
     }
   }
 
-  void _updateLocalConversationStatus(String convId, String newStatus) {
+  void _updateLocalConversationStatus(
+    String convId,
+    String newStatus, {
+    DateTime? closedAt,
+  }) {
     final prefs = _prefs;
     if (prefs == null) return;
     final allKeys =
@@ -814,11 +938,40 @@ class SupportChatService {
         if (idx >= 0) {
           decoded[idx] = decoded[idx].copyWith(
             status: newStatus,
+            closedAt: newStatus == 'open' ? null : (closedAt ?? DateTime.now()),
+            clearClosedAt: newStatus == 'open',
             updatedAt: DateTime.now(),
           );
           prefs.setString(
               key, jsonEncode(decoded.map((e) => e.toJson()).toList()));
           break;
+        }
+      } catch (_) {}
+    }
+  }
+
+  void _deleteLocalConversation(String convId) {
+    final prefs = _prefs;
+    if (prefs == null || convId.isEmpty) return;
+
+    // Remove messages key
+    prefs.remove(_convMsgKey(convId));
+
+    // Remove conversation from all user conversation caches
+    final allKeys =
+        prefs.getKeys().where((k) => k.startsWith('shophub.support.conversations.'));
+    for (final key in allKeys) {
+      final jsonStr = prefs.getString(key);
+      if (jsonStr == null) continue;
+      try {
+        final decoded = (jsonDecode(jsonStr) as List)
+            .map((e) => SupportConversation.fromJson(e as Map<String, dynamic>))
+            .toList();
+        final beforeCount = decoded.length;
+        decoded.removeWhere((c) => c.id == convId);
+        if (decoded.length != beforeCount) {
+          prefs.setString(
+              key, jsonEncode(decoded.map((e) => e.toJson()).toList()));
         }
       } catch (_) {}
     }

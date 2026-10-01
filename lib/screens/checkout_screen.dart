@@ -10,6 +10,7 @@ import '../controllers/order_controller.dart';
 import '../core/widgets/app_button.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 import '../widgets/stripe_payment_sheet.dart';
 
 import '../controllers/coupon_controller.dart';
@@ -176,10 +177,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       return Scaffold(
         appBar: AppBar(title: const Text('Checkout')),
-        body: Form(
-          key: _form,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Form(
+              key: _form,
+              child: ListView(
+                padding: Responsive.screenPadding(context, horizontal: 16, vertical: 16),
             children: [
               const Text('Shipping details',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
@@ -368,10 +372,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Coupon Discount (${cartCtrl.appliedCoupon!.code} - ${cartCtrl.appliedCoupon!.discountPercent}%)',
-                      style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700),
+                    Expanded(
+                      child: Text(
+                        'Coupon Discount (${cartCtrl.appliedCoupon!.code} - ${cartCtrl.appliedCoupon!.discountPercent}%)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700),
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       '-${pkr.format(cartCtrl.discountAmount)}',
                       style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w800),
@@ -427,7 +436,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 title: Row(
                   children: [
-                    const Text('Stripe (Card Payment)'),
+                    const Flexible(
+                      child: Text(
+                        'Stripe (Card Payment)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -470,7 +485,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
         ),
-      );
+      ),
+    ),
+  );
     });
   }
 }

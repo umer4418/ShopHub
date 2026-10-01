@@ -25,6 +25,8 @@ class SupportChatController extends GetxController {
   final RxList<SupportMessage> _messages = <SupportMessage>[].obs;
   final RxList<SupportConversation> _adminConversations =
       <SupportConversation>[].obs;
+  final RxList<SupportConversation> _customerConversations =
+      <SupportConversation>[].obs;
 
   final RxBool _isLoading = false.obs;
   final RxBool _isSending = false.obs;
@@ -39,6 +41,18 @@ class SupportChatController extends GetxController {
   List<SupportMessage> get messages => List.unmodifiable(_messages);
   List<SupportConversation> get adminConversations =>
       List.unmodifiable(_adminConversations);
+  List<SupportConversation> get customerConversations =>
+      List.unmodifiable(_customerConversations);
+
+  List<SupportConversation> get customerOpenTickets =>
+      _customerConversations.where((c) => c.isOpen).toList();
+  List<SupportConversation> get customerClosedTickets =>
+      _customerConversations.where((c) => c.isClosed).toList();
+
+  List<SupportConversation> get adminOpenTickets =>
+      _adminConversations.where((c) => c.isOpen).toList();
+  List<SupportConversation> get adminClosedTickets =>
+      _adminConversations.where((c) => c.isClosed).toList();
 
   bool get isLoading => _isLoading.value;
   bool get isSending => _isSending.value;
@@ -48,6 +62,9 @@ class SupportChatController extends GetxController {
   int get totalAdminUnreadCount =>
       _adminConversations.fold<int>(0, (sum, c) => sum + c.unreadCount);
 
+  int get totalCustomerUnreadCount =>
+      _customerConversations.fold<int>(0, (sum, c) => sum + c.unreadCount);
+
   int get unreadCustomerCount => _messages
       .where((m) => m.senderRole == 'admin' && !m.isRead)
       .length;
@@ -56,12 +73,31 @@ class SupportChatController extends GetxController {
     await _service.init();
   }
 
-  /// Initializes the chat session for a customer, loading or creating their conversation.
+  /// Loads all support conversations belonging to [customerId].
+  Future<void> loadCustomerConversations(String customerId) async {
+    _activeUserId.value = customerId;
+    _activeRole.value = 'customer';
+    _isLoading.value = true;
+    update();
+
+    try {
+      final list = await _service.fetchConversationsForCustomer(customerId);
+      _customerConversations.assignAll(list);
+    } catch (e) {
+      debugPrint('Error loading customer conversations: $e');
+    } finally {
+      _isLoading.value = false;
+      update();
+    }
+  }
+
+  /// Initializes or continues the chat session for a customer.
   Future<void> initCustomerChat({
     required String customerId,
     String? customerName,
     String? customerEmail,
     String? orderId,
+    String? subject,
   }) async {
     _activeUserId.value = customerId;
     _activeRole.value = 'customer';
@@ -69,14 +105,25 @@ class SupportChatController extends GetxController {
     update();
 
     try {
+      final list = await _service.fetchConversationsForCustomer(customerId);
+      _customerConversations.assignAll(list);
+
       final conv = await _service.getOrCreateConversation(
         customerId: customerId,
         customerName: customerName,
         customerEmail: customerEmail,
         orderId: orderId,
+        subject: subject,
       );
 
       _activeConversation.value = conv;
+      final idx = _customerConversations.indexWhere((c) => c.id == conv.id);
+      if (idx >= 0) {
+        _customerConversations[idx] = conv;
+      } else {
+        _customerConversations.insert(0, conv);
+      }
+
       await _loadConversationMessages(conv.id, 'customer');
       _subscribeToRealtime(conv.id);
     } catch (e) {
@@ -85,6 +132,89 @@ class SupportChatController extends GetxController {
       _isLoading.value = false;
       update();
     }
+  }
+
+  /// Creates a brand new support ticket for the customer.
+  Future<SupportConversation?> createCustomerTicket({
+    required String customerId,
+    String? customerName,
+    String? customerEmail,
+    String? orderId,
+    String? subject,
+    String? initialMessage,
+  }) async {
+    _activeUserId.value = customerId;
+    _activeRole.value = 'customer';
+    _isLoading.value = true;
+    update();
+
+    try {
+      final conv = await _service.createTicket(
+        customerId: customerId,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        orderId: orderId,
+        subject: subject,
+        initialMessage: initialMessage,
+      );
+
+      _customerConversations.removeWhere((c) => c.id == conv.id);
+      _customerConversations.insert(0, conv);
+      _activeConversation.value = conv;
+
+      await _loadConversationMessages(conv.id, 'customer');
+      _subscribeToRealtime(conv.id);
+      return conv;
+    } catch (e) {
+      debugPrint('Error creating customer ticket: $e');
+      return null;
+    } finally {
+      _isLoading.value = false;
+      update();
+    }
+  }
+
+  /// Opens an existing conversation for either customer or admin role.
+  Future<void> openConversation(
+    SupportConversation conv, {
+    required String role,
+  }) async {
+    _activeRole.value = role;
+    _activeConversation.value = conv;
+    _isLoading.value = true;
+    update();
+
+    try {
+      await _loadConversationMessages(conv.id, role);
+      _subscribeToRealtime(conv.id);
+
+      if (role == 'admin') {
+        final idx = _adminConversations.indexWhere((c) => c.id == conv.id);
+        if (idx >= 0) {
+          _adminConversations[idx] =
+              _adminConversations[idx].copyWith(unreadCount: 0);
+        }
+      } else {
+        final idx = _customerConversations.indexWhere((c) => c.id == conv.id);
+        if (idx >= 0) {
+          _customerConversations[idx] =
+              _customerConversations[idx].copyWith(unreadCount: 0);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error opening conversation: $e');
+    } finally {
+      _isLoading.value = false;
+      update();
+    }
+  }
+
+  /// Clears active conversation detail when leaving chat screen.
+  void clearActiveConversation() {
+    _unsubscribeRealtime();
+    _activeConversation.value = null;
+    _messages.clear();
+    update();
   }
 
   /// Admin: Fetches all customer conversations for the Admin Portal and starts global listeners.
@@ -107,27 +237,7 @@ class SupportChatController extends GetxController {
 
   /// Admin: Selects and opens a customer conversation.
   Future<void> openAdminConversation(SupportConversation conv) async {
-    _activeRole.value = 'admin';
-    _activeConversation.value = conv;
-    _isLoading.value = true;
-    update();
-
-    try {
-      await _loadConversationMessages(conv.id, 'admin');
-      _subscribeToRealtime(conv.id);
-
-      // Reset unread count locally for instant UI responsiveness
-      final idx = _adminConversations.indexWhere((c) => c.id == conv.id);
-      if (idx >= 0) {
-        _adminConversations[idx] =
-            _adminConversations[idx].copyWith(unreadCount: 0);
-      }
-    } catch (e) {
-      debugPrint('Error opening admin conversation: $e');
-    } finally {
-      _isLoading.value = false;
-      update();
-    }
+    await openConversation(conv, role: 'admin');
   }
 
   /// Internal: Loads messages and marks opposite role's messages as read.
@@ -170,21 +280,34 @@ class SupportChatController extends GetxController {
         }
 
         // Update active conversation updatedAt and lastMessage
-        _activeConversation.value = conv.copyWith(
+        final updatedConv = conv.copyWith(
           lastMessage: msg.message,
           updatedAt: msg.createdAt,
         );
+        _activeConversation.value = updatedConv;
 
-        // Update admin conversation list if admin is active
-        final idx = _adminConversations.indexWhere((c) => c.id == conv.id);
-        if (idx >= 0) {
-          final updated = _adminConversations[idx].copyWith(
+        // Update admin conversation list
+        final aIdx = _adminConversations.indexWhere((c) => c.id == conv.id);
+        if (aIdx >= 0) {
+          final updated = _adminConversations[aIdx].copyWith(
             lastMessage: msg.message,
             updatedAt: msg.createdAt,
           );
-          _adminConversations.removeAt(idx);
+          _adminConversations.removeAt(aIdx);
           _adminConversations.insert(0, updated);
         }
+
+        // Update customer conversation list
+        final cIdx = _customerConversations.indexWhere((c) => c.id == conv.id);
+        if (cIdx >= 0) {
+          final updated = _customerConversations[cIdx].copyWith(
+            lastMessage: msg.message,
+            updatedAt: msg.createdAt,
+          );
+          _customerConversations.removeAt(cIdx);
+          _customerConversations.insert(0, updated);
+        }
+
         update();
         return true;
       }
@@ -198,20 +321,65 @@ class SupportChatController extends GetxController {
     }
   }
 
-  /// Closes the active conversation.
+  /// Closes the active conversation and sets closed_at timestamp.
+  /// Never deletes messages or the conversation.
   Future<void> closeActiveConversation() async {
     final conv = _activeConversation.value;
     if (conv == null) return;
 
+    final now = DateTime.now();
     await _service.closeConversation(conv.id);
-    _activeConversation.value = conv.copyWith(status: 'closed');
+    final updated = conv.copyWith(status: 'closed', closedAt: now);
+    _activeConversation.value = updated;
 
-    final idx = _adminConversations.indexWhere((c) => c.id == conv.id);
-    if (idx >= 0) {
-      _adminConversations[idx] =
-          _adminConversations[idx].copyWith(status: 'closed');
+    final aIdx = _adminConversations.indexWhere((c) => c.id == conv.id);
+    if (aIdx >= 0) {
+      _adminConversations[aIdx] = updated;
+    }
+
+    final cIdx = _customerConversations.indexWhere((c) => c.id == conv.id);
+    if (cIdx >= 0) {
+      _customerConversations[cIdx] = updated;
     }
     update();
+  }
+
+  /// Reopens a closed conversation so user and admin can continue conversation.
+  Future<void> reopenActiveConversation() async {
+    final conv = _activeConversation.value;
+    if (conv == null) return;
+
+    await _service.reopenConversation(conv.id);
+    final updated = conv.copyWith(status: 'open', clearClosedAt: true);
+    _activeConversation.value = updated;
+
+    final aIdx = _adminConversations.indexWhere((c) => c.id == conv.id);
+    if (aIdx >= 0) {
+      _adminConversations[aIdx] = updated;
+    }
+
+    final cIdx = _customerConversations.indexWhere((c) => c.id == conv.id);
+    if (cIdx >= 0) {
+      _customerConversations[cIdx] = updated;
+    }
+    update();
+  }
+
+  /// Explicitly deletes a conversation and all its messages.
+  /// Must only be triggered after user confirmation dialog.
+  Future<bool> deleteConversation(String conversationId) async {
+    final ok = await _service.deleteConversation(conversationId);
+    if (ok) {
+      _adminConversations.removeWhere((c) => c.id == conversationId);
+      _customerConversations.removeWhere((c) => c.id == conversationId);
+      if (_activeConversation.value?.id == conversationId) {
+        _unsubscribeRealtime();
+        _activeConversation.value = null;
+        _messages.clear();
+      }
+      update();
+    }
+    return ok;
   }
 
   /// Silent message refresh for active conversation (used by polling timer).
@@ -240,6 +408,20 @@ class SupportChatController extends GetxController {
     try {
       final list = await _service.fetchAllConversationsForAdmin();
       _adminConversations.assignAll(list);
+
+      if (_activeConversation.value != null) {
+        await refreshActiveMessages();
+      } else {
+        update();
+      }
+    } catch (_) {}
+  }
+
+  /// Silent data refresh for Customer Hub (used by polling timer).
+  Future<void> refreshCustomerData(String customerId) async {
+    try {
+      final list = await _service.fetchConversationsForCustomer(customerId);
+      _customerConversations.assignAll(list);
 
       if (_activeConversation.value != null) {
         await refreshActiveMessages();
@@ -344,6 +526,7 @@ class SupportChatController extends GetxController {
     _activeConversation.value = null;
     _messages.clear();
     _adminConversations.clear();
+    _customerConversations.clear();
     _activeUserId.value = newUserId ?? '';
     _isLoading.value = false;
     _isSending.value = false;

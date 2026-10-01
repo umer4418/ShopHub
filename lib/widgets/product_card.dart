@@ -6,6 +6,7 @@ import '../controllers/wishlist_controller.dart';
 import '../models/product.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 import 'shop_product_image.dart';
 import 'star_rating.dart';
 
@@ -103,108 +104,118 @@ class ProductCard extends StatelessWidget {
             ),
 
             // Product Details
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      fontSize: 12.5,
-                      color: ShopColors.text,
-                    ),
+            Builder(
+              builder: (context) {
+                final isSmall = Responsive.isSmallMobile(context);
+                return Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isSmall ? 8 : 10,
+                    isSmall ? 6 : 8,
+                    isSmall ? 8 : 10,
+                    isSmall ? 7 : 10,
                   ),
-                  const SizedBox(height: 5),
-
-                  // Price and Quick Add-to-Cart Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              pkr.format(product.price),
-                              style: const TextStyle(
-                                color: ShopColors.primary,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 14.5,
-                              ),
-                            ),
-                            if (product.discountPercent > 0)
-                              Text(
-                                pkr.format(product.originalPrice),
-                                style: const TextStyle(
-                                  color: ShopColors.muted,
-                                  fontSize: 11,
-                                  decoration: TextDecoration.lineThrough,
-                                ),
-                              ),
-                          ],
+                      // Title
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          fontSize: isSmall ? 11.5 : 12.5,
+                          color: ShopColors.text,
                         ),
                       ),
+                      SizedBox(height: isSmall ? 3 : 5),
 
-                      // Quick Add to Cart Action
-                      GestureDetector(
-                        onTap: () {
-                          if (Get.isRegistered<CartController>()) {
-                            Get.find<CartController>().addToCart(product);
-                            final messenger =
-                                ScaffoldMessenger.maybeOf(context);
-                            if (messenger != null) {
-                              messenger.hideCurrentSnackBar();
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content:
-                                      Text('${product.name} added to cart'),
-                                  duration: const Duration(seconds: 1),
-                                  behavior: SnackBarBehavior.floating,
-                                  backgroundColor: ShopColors.navy,
+                      // Price and Quick Add-to-Cart Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pkr.format(product.price),
+                                  style: TextStyle(
+                                    color: ShopColors.primary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: isSmall ? 13.0 : 14.5,
+                                  ),
                                 ),
-                              );
-                            }
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: ShopColors.primary,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: ShopColors.primary.withValues(alpha: 0.35),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                                if (product.discountPercent > 0)
+                                  Text(
+                                    pkr.format(product.originalPrice),
+                                    style: TextStyle(
+                                      color: ShopColors.muted,
+                                      fontSize: isSmall ? 10.0 : 11.0,
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+
+                          // Quick Add to Cart Action
+                          GestureDetector(
+                            onTap: () {
+                              if (Get.isRegistered<CartController>()) {
+                                Get.find<CartController>().addToCart(product);
+                                final messenger =
+                                    ScaffoldMessenger.maybeOf(context);
+                                if (messenger != null) {
+                                  messenger.hideCurrentSnackBar();
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('${product.name} added to cart'),
+                                      duration: const Duration(seconds: 1),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: ShopColors.navy,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(isSmall ? 5 : 6),
+                              decoration: BoxDecoration(
+                                color: ShopColors.primary,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: ShopColors.primary.withValues(alpha: 0.35),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
-                            ],
+                              child: Icon(
+                                Icons.add_shopping_cart_rounded,
+                                size: isSmall ? 13 : 15,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.add_shopping_cart_rounded,
-                            size: 15,
-                            color: Colors.white,
-                          ),
-                        ),
+                        ],
+                      ),
+                      SizedBox(height: isSmall ? 3 : 5),
+
+                      // Ratings & Review Count
+                      StarRating(
+                        rating: product.rating,
+                        size: isSmall ? 9.5 : 11,
+                        count: product.reviewCount,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-
-                  // Ratings & Review Count
-                  StarRating(
-                    rating: product.rating,
-                    size: 11,
-                    count: product.reviewCount,
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ],
         ),

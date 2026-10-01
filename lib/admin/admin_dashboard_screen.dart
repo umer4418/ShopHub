@@ -7,6 +7,7 @@ import '../controllers/order_controller.dart';
 import '../controllers/product_controller.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -36,101 +37,106 @@ class AdminDashboardScreen extends StatelessWidget {
             ),
           ],
         ),
-        body: RefreshIndicator(
-          onRefresh: () => orderCtrl.refreshOrders(),
-          child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _Stat(label: 'Products', value: '${productCtrl.products.length}'),
-                _Stat(label: 'Categories', value: '${productCtrl.categories.length}'),
-                _Stat(label: 'Orders', value: '${orderCtrl.orders.length}'),
-                _Stat(
-                  label: 'Revenue',
-                  value: pkr.format(
-                    orderCtrl.orders.fold<double>(0, (s, o) => s + o.total),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.adminProductForm),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add product'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.adminCategories),
-                    icon: const Icon(Icons.category_outlined),
-                    label: const Text('Categories'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.adminOrders),
-              icon: const Icon(Icons.receipt_long_outlined),
-              label: const Text('View orders'),
-            ),
-            const SizedBox(height: 16),
-            const Text('Catalog',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            ...productCtrl.products.map(
-              (p) => Card(
-                child: ListTile(
-                  leading: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      p.imageUrl,
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          const SizedBox(width: 48, height: 48),
-                    ),
-                  ),
-                  title: Text(p.name,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(pkr.format(p.price)),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (v) {
-                      if (v == 'edit') {
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.adminProductForm,
-                          arguments: p.id,
-                        );
-                      } else if (v == 'delete') {
-                        productCtrl.deleteProduct(p.id);
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'edit', child: Text('Edit')),
-                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: RefreshIndicator(
+              onRefresh: () => orderCtrl.refreshOrders(),
+              child: ListView(
+                padding: Responsive.screenPadding(context),
+                children: [
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      _Stat(label: 'Products', value: '${productCtrl.products.length}'),
+                      _Stat(label: 'Categories', value: '${productCtrl.categories.length}'),
+                      _Stat(label: 'Orders', value: '${orderCtrl.orders.length}'),
+                      _Stat(
+                        label: 'Revenue',
+                        value: pkr.format(
+                          orderCtrl.orders.fold<double>(0, (s, o) => s + o.total),
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, AppRoutes.adminProductForm),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add product'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, AppRoutes.adminCategories),
+                          icon: const Icon(Icons.category_outlined),
+                          label: const Text('Categories'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.adminOrders),
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('View orders'),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Catalog',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  ...productCtrl.products.map(
+                    (p) => Card(
+                      child: ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            p.imageUrl,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) =>
+                                const SizedBox(width: 48, height: 48),
+                          ),
+                        ),
+                        title: Text(p.name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(pkr.format(p.price)),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (v) {
+                            if (v == 'edit') {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.adminProductForm,
+                                arguments: p.id,
+                              );
+                            } else if (v == 'delete') {
+                              productCtrl.deleteProduct(p.id);
+                            }
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            PopupMenuItem(value: 'delete', child: Text('Delete')),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
-    );
-  });
+      );
+    });
   }
 }
 
@@ -141,8 +147,13 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenW = MediaQuery.sizeOf(context).width;
+    final padding = Responsive.screenPadding(context);
+    final availableW = (screenW - (padding.left + padding.right) - 10).clamp(100.0, 760.0);
+    final cardW = screenW < 360 ? availableW : (availableW / 2).clamp(130.0, 220.0);
+
     return Container(
-      width: 160,
+      width: cardW,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(12)),
@@ -152,9 +163,13 @@ class _Stat extends StatelessWidget {
           Text(label,
               style: const TextStyle(color: ShopColors.muted, fontSize: 12)),
           const SizedBox(height: 4),
-          Text(value,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          ),
         ],
       ),
     );

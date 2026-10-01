@@ -5,6 +5,7 @@ import '../app/routes/app_routes.dart';
 import '../controllers/auth_controller.dart';
 import '../core/widgets/app_button.dart';
 import '../core/widgets/app_text_field.dart';
+import '../utils/responsive.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -117,6 +118,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isSmall = Responsive.isSmallMobile(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Register')),
       body: Center(
@@ -125,7 +128,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Form(
             key: _form,
             child: ListView(
-              padding: const EdgeInsets.all(20),
+              padding: Responsive.screenPadding(context, horizontal: 20, vertical: 20),
               children: [
                 const Text('Join ShopHub',
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
@@ -138,13 +141,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<bool>(
-                    segments: const [
+                    segments: [
                       ButtonSegment<bool>(
                         value: false,
-                        label: Text('Customer / Client'),
-                        icon: Icon(Icons.person_outline),
+                        label: Text(isSmall ? 'Customer' : 'Customer / Client'),
+                        icon: const Icon(Icons.person_outline),
                       ),
-                      ButtonSegment<bool>(
+                      const ButtonSegment<bool>(
                         value: true,
                         label: Text('Admin'),
                         icon: Icon(Icons.admin_panel_settings_outlined),

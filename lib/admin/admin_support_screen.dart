@@ -15,7 +15,9 @@ import '../theme/colors.dart';
 import '../utils/money.dart';
 
 /// Admin Customer Support Management Screen
-/// Displays all customer conversations, enables live replying, order inspection, and ticket closing.
+/// Features dedicated Open Tickets and Closed Tickets sections,
+/// live replying, order context inspection, ticket closing/reopening,
+/// and permanent conversation deletion with confirmation.
 class AdminSupportScreen extends StatefulWidget {
   const AdminSupportScreen({super.key, this.isEmbedded = false});
 
@@ -29,7 +31,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
   final TextEditingController _replyController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchFilter = '';
-  String _statusFilter = 'all'; // 'all', 'open', 'closed'
+  String _statusFilter = 'open'; // Default to 'open' to prioritize active tickets!
   Timer? _pollTimer;
 
   @override
@@ -81,6 +83,11 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         ? Get.find<SupportChatController>()
         : Get.put(SupportChatController());
 
+    // If active ticket is closed, replying reopens it automatically
+    if (chatCtrl.activeConversation?.isClosed ?? false) {
+      await chatCtrl.reopenActiveConversation();
+    }
+
     _replyController.clear();
     final ok = await chatCtrl.sendMessage(text, sender: authCtrl.currentUser);
     if (ok) {
@@ -97,13 +104,53 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     }
   }
 
+  Future<void> _confirmDeleteConversation(
+    SupportConversation conv,
+    SupportChatController chatCtrl,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Conversation'),
+        content: const Text(
+          'Are you sure you want to delete this conversation? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await chatCtrl.deleteConversation(conv.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Conversation deleted permanently.'),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
+  }
+
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return DateFormat('MMM d').format(dt);
+    return DateFormat('MMM d, hh:mm a').format(dt);
   }
 
   @override
@@ -125,10 +172,12 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         final name = (c.customerName ?? '').toLowerCase();
         final email = (c.customerEmail ?? '').toLowerCase();
         final orderId = (c.orderId ?? '').toLowerCase();
+        final subject = (c.subject ?? '').toLowerCase();
         final lastMsg = (c.lastMessage ?? '').toLowerCase();
         return name.contains(q) ||
             email.contains(q) ||
             orderId.contains(q) ||
+            subject.contains(q) ||
             lastMsg.contains(q);
       }).toList();
 
@@ -140,7 +189,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
           children: [
             // Left list panel
             SizedBox(
-              width: 360,
+              width: 380,
               child: _buildConversationListPanel(chatCtrl, conversations),
             ),
             const VerticalDivider(width: 1, color: Color(0xFFE2E8F0)),
@@ -153,15 +202,13 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
           ],
         );
       } else {
-        // Mobile single view layout: if conversation active, show chat; otherwise list
+        // Mobile single view layout
         if (selectedConv != null) {
           return PopScope(
             canPop: false,
             onPopInvokedWithResult: (didPop, _) {
               if (didPop) return;
-              chatCtrl.openAdminConversation(
-                selectedConv.copyWith(id: ''),
-              ); // clear active
+              chatCtrl.clearActiveConversation();
             },
             child: _buildChatDetailPanel(chatCtrl, selectedConv, isMobile: true),
           );
@@ -196,6 +243,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     SupportChatController chatCtrl,
     List<SupportConversation> list,
   ) {
+    final openCount = chatCtrl.adminOpenTickets.length;
+    final closedCount = chatCtrl.adminClosedTickets.length;
+    final totalCount = chatCtrl.adminConversations.length;
+
     return Container(
       color: Colors.white,
       child: Column(
@@ -210,7 +261,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
               children: [
                 TextField(
                   decoration: InputDecoration(
-                    hintText: 'Search customer, email, order...',
+                    hintText: 'Search customer, email, order, subject...',
                     hintStyle: const TextStyle(fontSize: 13),
                     prefixIcon: const Icon(Icons.search, size: 18),
                     isDense: true,
@@ -227,15 +278,20 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                   ),
                   onChanged: (val) => setState(() => _searchFilter = val),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _filterChip('All', 'all'),
-                    const SizedBox(width: 6),
-                    _filterChip('Open', 'open'),
-                    const SizedBox(width: 6),
-                    _filterChip('Closed', 'closed'),
-                  ],
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _filterChip('Open ($openCount)', 'open',
+                          badgeColor: const Color(0xFF10B981)),
+                      const SizedBox(width: 6),
+                      _filterChip('Closed ($closedCount)', 'closed',
+                          badgeColor: Colors.grey),
+                      const SizedBox(width: 6),
+                      _filterChip('All ($totalCount)', 'all'),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -247,11 +303,36 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : list.isEmpty
                     ? Center(
-                        child: Text(
-                          _searchFilter.isEmpty
-                              ? 'No conversations found.'
-                              : 'No matching conversations.',
-                          style: const TextStyle(color: Colors.grey),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _statusFilter == 'open'
+                                    ? Icons.done_all_rounded
+                                    : Icons.inbox_outlined,
+                                size: 48,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _searchFilter.isEmpty
+                                    ? (_statusFilter == 'open'
+                                        ? 'No open tickets. All inquiries resolved!'
+                                        : (_statusFilter == 'closed'
+                                            ? 'No closed tickets yet.'
+                                            : 'No conversations found.'))
+                                    : 'No matching conversations.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       )
                     : RefreshIndicator(
@@ -292,7 +373,9 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                                       radius: 20,
                                       backgroundColor: conv.unreadCount > 0
                                           ? ShopColors.primary
-                                          : const Color(0xFFCBD5E1),
+                                          : (conv.isOpen
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFFCBD5E1)),
                                       child: Text(
                                         initial,
                                         style: const TextStyle(
@@ -315,55 +398,103 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                                                 child: Text(
                                                   name,
                                                   style: TextStyle(
-                                                    fontWeight: conv.unreadCount > 0
-                                                        ? FontWeight.bold
-                                                        : FontWeight.w600,
+                                                    fontWeight:
+                                                        conv.unreadCount > 0
+                                                            ? FontWeight.bold
+                                                            : FontWeight.w600,
                                                     fontSize: 14,
-                                                    color: const Color(0xFF0F172A),
+                                                    color:
+                                                        const Color(0xFF0F172A),
                                                   ),
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               Text(
-                                                _formatTimestamp(conv.updatedAt),
+                                                _formatTimestamp(
+                                                    conv.updatedAt),
                                                 style: TextStyle(
                                                   fontSize: 11,
                                                   color: conv.unreadCount > 0
                                                       ? ShopColors.primary
                                                       : Colors.grey,
-                                                  fontWeight: conv.unreadCount > 0
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
+                                                  fontWeight:
+                                                      conv.unreadCount > 0
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
                                                 ),
                                               ),
                                             ],
                                           ),
                                           const SizedBox(height: 2),
-                                          if (conv.orderId != null)
-                                            Container(
-                                              margin: const EdgeInsets.only(
-                                                bottom: 4,
+                                          if (conv.subject != null &&
+                                              conv.subject!.isNotEmpty)
+                                            Text(
+                                              conv.subject!,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: ShopColors.text,
                                               ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue.shade50,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                'Order #${conv.orderId}',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.blue.shade800,
-                                                  fontWeight: FontWeight.w600,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 1,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: conv.isOpen
+                                                      ? const Color(0xFF10B981)
+                                                          .withValues(alpha: 0.12)
+                                                      : Colors.grey.shade200,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  conv.isOpen ? 'OPEN' : 'CLOSED',
+                                                  style: TextStyle(
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: conv.isOpen
+                                                        ? const Color(0xFF047857)
+                                                        : Colors.grey.shade700,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
+                                              if (conv.orderId != null) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 1,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.blue.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    '#${conv.orderId}',
+                                                    style: TextStyle(
+                                                      fontSize: 9,
+                                                      color: Colors.blue.shade800,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
                                           Text(
                                             conv.lastMessage ??
                                                 'No messages yet',
@@ -382,26 +513,44 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                                         ],
                                       ),
                                     ),
-                                    if (conv.unreadCount > 0)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          left: 8,
-                                          top: 2,
-                                        ),
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.redAccent,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Text(
-                                          '${conv.unreadCount}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
+                                    const SizedBox(width: 6),
+                                    Column(
+                                      children: [
+                                        if (conv.unreadCount > 0)
+                                          Container(
+                                            margin: const EdgeInsets.only(
+                                                bottom: 6),
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.redAccent,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Text(
+                                              '${conv.unreadCount}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
                                           ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            size: 18,
+                                            color: Colors.grey,
+                                          ),
+                                          tooltip: 'Delete Conversation',
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () {
+                                            _confirmDeleteConversation(
+                                                conv, chatCtrl);
+                                          },
                                         ),
-                                      ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
@@ -415,13 +564,13 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     );
   }
 
-  Widget _filterChip(String label, String value) {
+  Widget _filterChip(String label, String value, {Color? badgeColor}) {
     final isSelected = _statusFilter == value;
     return InkWell(
       onTap: () => setState(() => _statusFilter = value),
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? ShopColors.primary : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(16),
@@ -429,7 +578,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             color: isSelected ? Colors.white : Colors.black87,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
@@ -448,7 +597,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
             Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             const Text(
-              'Select a Customer Conversation',
+              'Select a Customer Ticket',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -500,7 +649,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                   IconButton(
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () {
-                      chatCtrl.onUserChanged(chatCtrl.activeUserId);
+                      chatCtrl.clearActiveConversation();
                     },
                   ),
                 CircleAvatar(
@@ -517,17 +666,62 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        customerTitle,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              customerTitle,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: conv.isOpen
+                                  ? const Color(0xFF10B981)
+                                      .withValues(alpha: 0.12)
+                                  : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              conv.isOpen ? 'OPEN' : 'CLOSED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: conv.isOpen
+                                    ? const Color(0xFF047857)
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      if (conv.subject != null && conv.subject!.isNotEmpty)
+                        Text(
+                          conv.subject!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade900,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       if (conv.customerEmail != null)
                         Text(
                           conv.customerEmail!,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
                         ),
                     ],
                   ),
@@ -541,27 +735,55 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                       visualDensity: VisualDensity.compact,
                     ),
                     icon: const Icon(Icons.check_circle_outline, size: 16),
-                    label: const Text('Close Ticket', style: TextStyle(fontSize: 12)),
+                    label: const Text('Close Ticket',
+                        style: TextStyle(fontSize: 12)),
                     onPressed: () => chatCtrl.closeActiveConversation(),
                   )
                 else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: VisualDensity.compact,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Ticket Closed',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
+                    icon: const Icon(Icons.replay, size: 16),
+                    label: const Text('Reopen Ticket',
+                        style: TextStyle(fontSize: 12)),
+                    onPressed: () => chatCtrl.reopenActiveConversation(),
                   ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Delete Conversation',
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 20),
+                  onPressed: () {
+                    _confirmDeleteConversation(conv, chatCtrl);
+                  },
+                ),
               ],
             ),
           ),
+
+          // Closed status banner (if closed)
+          if (conv.isClosed)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.grey.shade200,
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_outline, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Ticket Closed${conv.closedAt != null ? ' on ${_formatTimestamp(conv.closedAt!)}' : ''}. Message history is preserved permanently.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Related Order Details Strip (if linked)
           if (conv.orderId != null)

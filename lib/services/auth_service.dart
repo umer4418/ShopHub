@@ -83,8 +83,21 @@ class AuthService {
       await saveSession(cleanEmail);
       return user;
     } on AuthException catch (e) {
+      debugPrint('Supabase AuthException on signUp: ${e.message} (status: ${e.statusCode})');
+      if (e.message.toLowerCase().contains('failed to fetch')) {
+        throw 'Network error: Unable to connect to Supabase server. Please verify your internet connection.';
+      }
+      if (e.message.toLowerCase().contains('user already registered')) {
+        throw 'An account with this email address already exists. Please log in instead.';
+      }
       throw e.message;
     } catch (e) {
+      debugPrint('General error on signUp: $e');
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('Permission denied')) {
+        throw 'Network error: Cannot reach authentication server. Please check your internet connection.';
+      }
       // Local fallback for offline/test environments
       final user = ShopUser(
         name: name.trim(),
@@ -148,11 +161,24 @@ class AuthService {
       await saveSession(cleanEmail);
       return profileUser;
     } on AuthException catch (e) {
+      debugPrint('Supabase AuthException on signIn: ${e.message} (status: ${e.statusCode})');
+      if (e.message.toLowerCase().contains('failed to fetch')) {
+        throw 'Network error: Unable to connect to Supabase server. Please verify your internet connection.';
+      }
       if (e.message.toLowerCase().contains('email not confirmed')) {
         throw 'Email is not confirmed. Please disable "Confirm email" in Supabase Dashboard (Authentication -> Providers -> Email).';
       }
+      if (e.message.toLowerCase().contains('invalid login credentials')) {
+        throw 'Invalid email or password. Please verify your credentials and try again.';
+      }
       throw e.message;
     } catch (e) {
+      debugPrint('General error on signIn: $e');
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Failed host lookup') ||
+          e.toString().contains('Permission denied')) {
+        throw 'Network error: Cannot reach authentication server. Please check your internet connection.';
+      }
       // Check local cache/mock users
       final localUsers = loadUsers();
       final match = localUsers.cast<ShopUser?>().firstWhere(

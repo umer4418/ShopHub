@@ -9,6 +9,7 @@ import '../controllers/order_controller.dart';
 import '../models/order.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 
 enum ProfileOrderTab {
   all('All Orders'),
@@ -157,14 +158,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       return Scaffold(
         appBar: AppBar(title: const Text('My profile')),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            if (authId != null) {
-              await orderCtrl.refreshOrders(authId);
-            }
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxTabletContentWidth),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                if (authId != null) {
+                  await orderCtrl.refreshOrders(authId);
+                }
+              },
+              child: ListView(
+                padding: Responsive.screenPadding(context, horizontal: 16, vertical: 16),
             children: [
               // User Avatar & Details Card
               Container(
@@ -595,7 +599,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
-      );
+      ),
+    ),
+  );
     });
   }
 }

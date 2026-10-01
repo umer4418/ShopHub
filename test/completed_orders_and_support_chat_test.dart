@@ -10,6 +10,7 @@ import 'package:shophub/models/cart_item.dart';
 import 'package:shophub/models/order.dart';
 import 'package:shophub/models/product.dart';
 import 'package:shophub/models/user.dart';
+import 'package:shophub/admin/admin_support_screen.dart';
 import 'package:shophub/screens/profile_screen.dart';
 import 'package:shophub/screens/support_chat_screen.dart';
 import 'package:shophub/services/support_chat_service.dart';
@@ -502,4 +503,309 @@ void main() {
       expect(chatCtrl.messages.length, 2);
     });
   });
+
+  group('Part 3: Persistent Conversations, Ticket Separation, Reopen & Delete Confirmation Tests', () {
+    late SupportChatService chatService;
+    late SupportChatController chatCtrl;
+    late AuthController authCtrl;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      Get.reset();
+
+      chatService = SupportChatService();
+      await chatService.init(prefs);
+
+      authCtrl = AuthController()..init();
+      Get.put(authCtrl);
+
+      chatCtrl = SupportChatController(service: chatService);
+      await chatCtrl.init();
+      Get.put(chatService);
+      Get.put(chatCtrl);
+    });
+
+    test('Customer can create multiple tickets with distinct subjects without losing or overwriting previous tickets', () async {
+      chatCtrl.onUserChanged(customerA.id);
+
+      // Ticket 1: Delivery issue
+      final t1 = await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'Delayed delivery inquiry',
+        initialMessage: 'My delivery has been delayed for 2 days.',
+      );
+      expect(t1, isNotNull);
+      expect(t1?.subject, 'Delayed delivery inquiry');
+
+      // Ticket 2: Refund request for an order
+      final t2 = await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        orderId: 'ord-777',
+        subject: 'Refund request for damaged item',
+        initialMessage: 'The item arrived damaged, please process refund.',
+      );
+      expect(t2, isNotNull);
+      expect(t2?.orderId, 'ord-777');
+      expect(t2?.subject, 'Refund request for damaged item');
+
+      // Both tickets must coexist in customerConversations
+      expect(chatCtrl.customerConversations.length, 2);
+      expect(chatCtrl.customerOpenTickets.length, 2);
+      expect(chatCtrl.customerClosedTickets.length, 0);
+
+      final fetchedIds = chatCtrl.customerConversations.map((c) => c.id).toSet();
+      expect(fetchedIds.contains(t1!.id), isTrue);
+      expect(fetchedIds.contains(t2!.id), isTrue);
+    });
+
+    test('Closing a ticket sets status=closed and closedAt timestamp, never deletes conversation or messages', () async {
+      chatCtrl.onUserChanged(customerA.id);
+
+      final t1 = await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'General Question',
+        initialMessage: 'What are your support hours?',
+      );
+      expect(t1, isNotNull);
+
+      // Customer sends a follow-up
+      await chatCtrl.sendMessage('Also, do you offer weekend delivery?');
+      expect(chatCtrl.messages.length, 2);
+
+      // Close the conversation
+      await chatCtrl.closeActiveConversation();
+
+      // Conversation must be marked closed with closedAt timestamp
+      expect(chatCtrl.activeConversation?.isClosed, isTrue);
+      expect(chatCtrl.activeConversation?.closedAt, isNotNull);
+
+      // Separation: 0 open tickets, 1 closed ticket
+      expect(chatCtrl.customerOpenTickets.length, 0);
+      expect(chatCtrl.customerClosedTickets.length, 1);
+
+      // Critical requirement: Closing MUST NOT delete messages
+      final storedMessages = await chatService.fetchMessages(t1!.id);
+      expect(storedMessages.length, 2);
+      expect(storedMessages[0].message, 'What are your support hours?');
+      expect(storedMessages[1].message, 'Also, do you offer weekend delivery?');
+    });
+
+    test('Customer can view closed tickets and full message history remains intact', () async {
+      chatCtrl.onUserChanged(customerA.id);
+
+      await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'Product Question',
+        initialMessage: 'Is this water resistant?',
+      );
+      await chatCtrl.sendMessage('Thanks, got it.');
+      await chatCtrl.closeActiveConversation();
+
+      // Reset active conversation to simulate leaving and reopening
+      chatCtrl.clearActiveConversation();
+      expect(chatCtrl.activeConversation, isNull);
+      expect(chatCtrl.messages, isEmpty);
+
+      // Reload customer conversations from service
+      await chatCtrl.loadCustomerConversations(customerA.id!);
+      expect(chatCtrl.customerClosedTickets.length, 1);
+
+      // Open the closed ticket
+      await chatCtrl.openConversation(chatCtrl.customerClosedTickets.first, role: 'customer');
+      expect(chatCtrl.activeConversation, isNotNull);
+      expect(chatCtrl.activeConversation?.isClosed, isTrue);
+      expect(chatCtrl.messages.length, 2);
+      expect(chatCtrl.messages.first.message, 'Is this water resistant?');
+      expect(chatCtrl.messages.last.message, 'Thanks, got it.');
+    });
+
+    test('Admin portal separates open and closed tickets, and can reopen a closed ticket', () async {
+      // 1. Customer creates ticket and closes it
+      chatCtrl.onUserChanged(customerA.id);
+      final t1 = await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'Need help with order #ord-888',
+        orderId: 'ord-888',
+        initialMessage: 'Package was not delivered.',
+      );
+      await chatCtrl.closeActiveConversation();
+
+      // 2. Switch to Admin
+      chatCtrl.onUserChanged(adminUser.id);
+      await chatCtrl.loadAdminConversations();
+
+      // Admin Open Tickets: 0, Closed Tickets: 1
+      expect(chatCtrl.adminOpenTickets.length, 0);
+      expect(chatCtrl.adminClosedTickets.length, 1);
+      final closedTicket = chatCtrl.adminClosedTickets.first;
+      expect(closedTicket.id, t1!.id);
+      expect(closedTicket.isClosed, isTrue);
+
+      // Admin opens the closed ticket
+      await chatCtrl.openAdminConversation(closedTicket);
+      expect(chatCtrl.messages.length, 1);
+      expect(chatCtrl.messages.first.message, 'Package was not delivered.');
+
+      // Admin reopens the ticket
+      await chatCtrl.reopenActiveConversation();
+      expect(chatCtrl.activeConversation?.isOpen, isTrue);
+      expect(chatCtrl.activeConversation?.closedAt, isNull);
+      expect(chatCtrl.adminOpenTickets.length, 1);
+      expect(chatCtrl.adminClosedTickets.length, 0);
+
+      // Admin replies on reopened ticket
+      final replyOk = await chatCtrl.sendMessage(
+        'We have contacted the courier and they are re-delivering today.',
+        sender: adminUser,
+      );
+      expect(replyOk, isTrue);
+      expect(chatCtrl.messages.length, 2);
+    });
+
+    test('Customer and admin can permanently delete conversation after confirmation', () async {
+      chatCtrl.onUserChanged(customerA.id);
+      final t1 = await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'Disposable Inquiry',
+        initialMessage: 'This will be deleted.',
+      );
+      expect(chatCtrl.customerConversations.length, 1);
+
+      // Delete the conversation
+      final deleted = await chatCtrl.deleteConversation(t1!.id);
+      expect(deleted, isTrue);
+
+      // Removed from controller state
+      expect(chatCtrl.customerConversations, isEmpty);
+      expect(chatCtrl.activeConversation, isNull);
+      expect(chatCtrl.messages, isEmpty);
+
+      // Removed from service storage
+      final storedAfter = await chatService.fetchConversationsForCustomer(customerA.id!);
+      expect(storedAfter, isEmpty);
+      final messagesAfter = await chatService.fetchMessages(t1.id);
+      expect(messagesAfter, isEmpty);
+    });
+
+    testWidgets('Customer tickets hub displays Open & Closed tabs, and delete triggers exact confirmation dialog', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      authCtrl.setCurrentUser(customerA);
+      chatCtrl.onUserChanged(customerA.id);
+
+      // Create an open ticket and a closed ticket
+      final openConv = await chatCtrl.createCustomerTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'Open Issue Ticket',
+        initialMessage: 'This ticket is open.',
+      );
+      expect(openConv, isNotNull);
+
+      await tester.pumpWidget(createTestApp(const Scaffold(body: SupportChatScreen())));
+      await tester.pumpAndSettle();
+
+      // Verify Open and Closed Tabs exist
+      expect(find.textContaining('Open Tickets (1)'), findsOneWidget);
+      expect(find.textContaining('Closed Tickets (0)'), findsOneWidget);
+
+      // Open ticket card is visible
+      expect(find.text('Open Issue Ticket'), findsOneWidget);
+      expect(find.text('OPEN'), findsOneWidget);
+
+      // Tap delete button on the ticket card
+      await tester.tap(find.byIcon(Icons.delete_outline).first);
+      await tester.pumpAndSettle();
+
+      // Verify exact confirmation dialog requirement
+      expect(find.text('Delete Conversation'), findsWidgets);
+      expect(
+        find.text('Are you sure you want to delete this conversation? This action cannot be undone.'),
+        findsOneWidget,
+      );
+
+      // Cancel deletion
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      // Ticket still exists
+      expect(find.text('Open Issue Ticket'), findsOneWidget);
+    });
+
+    testWidgets('Admin Support screen displays Open and Closed tickets with reopen and delete actions', (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      authCtrl.setCurrentUser(adminUser);
+      chatCtrl.onUserChanged(adminUser.id);
+
+      // Seed a ticket
+      await chatService.createTicket(
+        customerId: customerA.id!,
+        customerName: customerA.name,
+        customerEmail: customerA.email,
+        subject: 'Admin Inspection Ticket',
+        initialMessage: 'Customer inquiry for admin review.',
+      );
+      await chatCtrl.loadAdminConversations();
+
+      await tester.pumpWidget(createTestApp(const Scaffold(body: AdminSupportScreen())));
+      await tester.pumpAndSettle();
+
+      // Verify filter chips with counts exist
+      expect(find.textContaining('Open (1)'), findsOneWidget);
+      expect(find.textContaining('Closed (0)'), findsOneWidget);
+
+      // Ticket visible in list
+      expect(find.text('Customer A'), findsWidgets);
+      expect(find.text('Admin Inspection Ticket'), findsOneWidget);
+
+      // Select ticket
+      await tester.tap(find.text('Admin Inspection Ticket'));
+      await tester.pumpAndSettle();
+
+      // Detail view opened
+      expect(find.text('Customer inquiry for admin review.'), findsWidgets);
+      expect(find.text('Close Ticket'), findsOneWidget);
+
+      // Close ticket
+      await tester.tap(find.text('Close Ticket'));
+      await tester.pumpAndSettle();
+
+      // Ticket now closed; Reopen Ticket button appears
+      expect(find.text('Reopen Ticket'), findsOneWidget);
+
+      // Reopen ticket
+      await tester.tap(find.text('Reopen Ticket'));
+      await tester.pumpAndSettle();
+
+      // Ticket is open again
+      expect(find.text('Close Ticket'), findsOneWidget);
+    });
+  });
 }
+

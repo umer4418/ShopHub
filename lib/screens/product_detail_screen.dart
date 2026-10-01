@@ -7,6 +7,7 @@ import '../controllers/product_controller.dart';
 import '../controllers/wishlist_controller.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 import '../widgets/quantity_stepper.dart';
 import '../widgets/shop_product_image.dart';
 import '../widgets/star_rating.dart';
@@ -34,6 +35,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final product = productCtrl.products.firstWhere((p) => p.id == id);
       final wished = wishlistCtrl.inWishlist(product.id);
       final category = productCtrl.categoryById(product.categoryId);
+
+      final isSmall = Responsive.isSmallMobile(context);
 
       return Scaffold(
         backgroundColor: Colors.white,
@@ -71,142 +74,184 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ],
         ),
-        body: ListView(
-          children: [
-            AspectRatio(
-              aspectRatio: 1.05,
-              child: ShopProductImage(
-                imageUrl: product.imageUrl,
-                categoryId: product.categoryId,
-                productName: product.name,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (category != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: ShopColors.primarySoft,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        category.name,
-                        style: const TextStyle(
-                          color: ShopColors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxTabletContentWidth),
+            child: ListView(
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: Responsive.value<double>(
+                      context,
+                      smallMobile: 280,
+                      mobile: 360,
+                      tablet: 420,
+                      desktop: 460,
                     ),
-                  const SizedBox(height: 8),
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w800, height: 1.2),
                   ),
-                  const SizedBox(height: 8),
-                  StarRating(
-                      rating: product.rating, count: product.reviewCount, size: 18),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  child: AspectRatio(
+                    aspectRatio: Responsive.value<double>(
+                      context,
+                      smallMobile: 1.15,
+                      mobile: 1.05,
+                      tablet: 1.3,
+                      desktop: 1.5,
+                    ),
+                    child: ShopProductImage(
+                      imageUrl: product.imageUrl,
+                      categoryId: product.categoryId,
+                      productName: product.name,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: Responsive.screenPadding(context, horizontal: 16, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        pkr.format(product.price),
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          color: ShopColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      if (product.discountPercent > 0)
-                        Text(
-                          pkr.format(product.originalPrice),
-                          style: const TextStyle(
-                            color: ShopColors.muted,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                      const SizedBox(width: 10),
-                      if (product.discountPercent > 0)
+                      if (category != null)
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: ShopColors.primarySoft,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            '-${product.discountPercent}%',
+                            category.name,
                             style: const TextStyle(
-                                color: ShopColors.primaryDark,
-                                fontWeight: FontWeight.w800),
+                              color: ShopColors.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(product.shortDescription,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Text(product.description,
-                      style: const TextStyle(
-                          height: 1.45, color: ShopColors.muted)),
-                  const SizedBox(height: 16),
-                  Text('In stock: ${product.stock}',
-                      style: const TextStyle(color: ShopColors.success)),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Text('Quantity', style: TextStyle(fontWeight: FontWeight.w700)),
-                      const Spacer(),
-                      QuantityStepper(
-                        value: qty,
-                        max: product.stock,
-                        onChanged: (v) => setState(() => qty = v),
+                      const SizedBox(height: 8),
+                      Text(
+                        product.name,
+                        style: TextStyle(
+                            fontSize: isSmall ? 19 : 22, fontWeight: FontWeight.w800, height: 1.2),
+                      ),
+                      const SizedBox(height: 8),
+                      StarRating(
+                          rating: product.rating, count: product.reviewCount, size: isSmall ? 16 : 18),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            pkr.format(product.price),
+                            style: TextStyle(
+                              fontSize: isSmall ? 22 : 26,
+                              fontWeight: FontWeight.w800,
+                              color: ShopColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          if (product.discountPercent > 0)
+                            Text(
+                              pkr.format(product.originalPrice),
+                              style: const TextStyle(
+                                color: ShopColors.muted,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          const SizedBox(width: 10),
+                          if (product.discountPercent > 0)
+                            Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: ShopColors.primarySoft,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '-${product.discountPercent}%',
+                                style: const TextStyle(
+                                    color: ShopColors.primaryDark,
+                                    fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(product.shortDescription,
+                          style: TextStyle(
+                              fontSize: isSmall ? 13.5 : 15, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      Text(product.description,
+                          style: const TextStyle(
+                              height: 1.45, color: ShopColors.muted)),
+                      const SizedBox(height: 16),
+                      Text('In stock: ${product.stock}',
+                          style: const TextStyle(color: ShopColors.success)),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Text('Quantity', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const Spacer(),
+                          QuantityStepper(
+                            value: qty,
+                            max: product.stock,
+                            onChanged: (v) => setState(() => qty = v),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      cartCtrl.addToCart(product, qty: qty);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Added to cart')),
-                      );
-                    },
-                    icon: const Icon(Icons.add_shopping_cart),
-                    label: const Text('Add to Cart'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      cartCtrl.addToCart(product, qty: qty);
-                      Navigator.pushNamed(context, AppRoutes.checkout);
-                    },
-                    child: const Text('Buy Now'),
-                  ),
                 ),
               ],
+            ),
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: Responsive.maxTabletContentWidth),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isSmall ? 10 : 16,
+                  8,
+                  isSmall ? 10 : 16,
+                  12,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: isSmall
+                            ? OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                              )
+                            : null,
+                        onPressed: () {
+                          cartCtrl.addToCart(product, qty: qty);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Added to cart')),
+                          );
+                        },
+                        icon: Icon(Icons.add_shopping_cart, size: isSmall ? 18 : 20),
+                        label: Text('Add to Cart', style: TextStyle(fontSize: isSmall ? 12 : 14)),
+                      ),
+                    ),
+                    SizedBox(width: isSmall ? 6 : 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: isSmall
+                            ? ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                              )
+                            : null,
+                        onPressed: () {
+                          cartCtrl.addToCart(product, qty: qty);
+                          Navigator.pushNamed(context, AppRoutes.checkout);
+                        },
+                        child: Text('Buy Now', style: TextStyle(fontSize: isSmall ? 12 : 14)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

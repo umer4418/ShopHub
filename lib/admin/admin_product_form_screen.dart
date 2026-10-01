@@ -5,6 +5,7 @@ import '../app/routes/app_routes.dart';
 import '../controllers/product_controller.dart';
 import '../core/consants/app_images.dart';
 import '../models/product.dart';
+import '../utils/responsive.dart';
 
 class AdminProductFormScreen extends StatefulWidget {
   const AdminProductFormScreen({super.key});
@@ -78,113 +79,118 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       appBar: AppBar(
         title: Text(_editingId == null ? 'Add product' : 'Edit product'),
       ),
-      body: Form(
-        key: _form,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Product name'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Form(
+            key: _form,
+            child: ListView(
+              padding: Responsive.screenPadding(context),
+              children: [
+                TextFormField(
+                  controller: _name,
+                  decoration: const InputDecoration(labelText: 'Product name'),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: _categoryId,
+                  items: productCtrl.categories
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _categoryId = v),
+                  decoration: const InputDecoration(labelText: 'Category'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _image,
+                  decoration: const InputDecoration(
+                    labelText:
+                        'Image URL (or drop files in assets/images/products)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _price,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Price'),
+                  validator: (v) =>
+                      double.tryParse(v ?? '') == null ? 'Enter a number' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _original,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Original price (for discount)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _short,
+                  decoration:
+                      const InputDecoration(labelText: 'Short description'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _desc,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _stock,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Stock'),
+                ),
+                SwitchListTile(
+                  title: const Text('Featured'),
+                  value: _featured,
+                  onChanged: (v) => setState(() => _featured = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Popular'),
+                  value: _popular,
+                  onChanged: (v) => setState(() => _popular = v),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    if (!_form.currentState!.validate()) return;
+                    final price = double.parse(_price.text);
+                    final original =
+                        double.tryParse(_original.text) ?? price;
+                    final product = Product(
+                      id: _editingId ?? 'p${DateTime.now().millisecondsSinceEpoch}',
+                      name: _name.text.trim(),
+                      categoryId: _categoryId ?? productCtrl.categories.first.id,
+                      imageUrl: _image.text.trim().isEmpty
+                          ? AppImages.placeholder
+                          : _image.text.trim(),
+                      price: price,
+                      originalPrice: original,
+                      rating: 4.5,
+                      reviewCount: 0,
+                      shortDescription: _short.text.trim(),
+                      description: _desc.text.trim(),
+                      stock: int.tryParse(_stock.text) ?? 0,
+                      featured: _featured,
+                      popular: _popular,
+                    );
+                    if (_editingId == null) {
+                      productCtrl.addProduct(product);
+                    } else {
+                      productCtrl.updateProduct(product);
+                    }
+                    Navigator.pop(context);
+                  },
+                  child:
+                      Text(_editingId == null ? 'Save product' : 'Update product'),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              initialValue: _categoryId,
-              items: productCtrl.categories
-                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
-                  .toList(),
-              onChanged: (v) => setState(() => _categoryId = v),
-              decoration: const InputDecoration(labelText: 'Category'),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _image,
-              decoration: const InputDecoration(
-                labelText:
-                    'Image URL (or drop files in assets/images/products)',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _price,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Price'),
-              validator: (v) =>
-                  double.tryParse(v ?? '') == null ? 'Enter a number' : null,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _original,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Original price (for discount)',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _short,
-              decoration:
-                  const InputDecoration(labelText: 'Short description'),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _desc,
-              maxLines: 4,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _stock,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Stock'),
-            ),
-            SwitchListTile(
-              title: const Text('Featured'),
-              value: _featured,
-              onChanged: (v) => setState(() => _featured = v),
-            ),
-            SwitchListTile(
-              title: const Text('Popular'),
-              value: _popular,
-              onChanged: (v) => setState(() => _popular = v),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () {
-                if (!_form.currentState!.validate()) return;
-                final price = double.parse(_price.text);
-                final original =
-                    double.tryParse(_original.text) ?? price;
-                final product = Product(
-                  id: _editingId ?? 'p${DateTime.now().millisecondsSinceEpoch}',
-                  name: _name.text.trim(),
-                  categoryId: _categoryId ?? productCtrl.categories.first.id,
-                  imageUrl: _image.text.trim().isEmpty
-                      ? AppImages.placeholder
-                      : _image.text.trim(),
-                  price: price,
-                  originalPrice: original,
-                  rating: 4.5,
-                  reviewCount: 0,
-                  shortDescription: _short.text.trim(),
-                  description: _desc.text.trim(),
-                  stock: int.tryParse(_stock.text) ?? 0,
-                  featured: _featured,
-                  popular: _popular,
-                );
-                if (_editingId == null) {
-                  productCtrl.addProduct(product);
-                } else {
-                  productCtrl.updateProduct(product);
-                }
-                Navigator.pop(context);
-              },
-              child:
-                  Text(_editingId == null ? 'Save product' : 'Update product'),
-            ),
-          ],
+          ),
         ),
       ),
     );

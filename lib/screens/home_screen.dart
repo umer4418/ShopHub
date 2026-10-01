@@ -8,6 +8,7 @@ import '../controllers/wishlist_controller.dart';
 import '../models/product.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/home_promo_carousel.dart';
 import '../widgets/product_card.dart';
@@ -30,15 +31,9 @@ class HomeScreen extends StatelessWidget {
     final cartCtrl = Get.find<CartController>();
     final wishlistCtrl = Get.find<WishlistController>();
 
-    final width = MediaQuery.sizeOf(context).width;
-    final cols = width >= 1200
-        ? 5
-        : width >= 900
-            ? 4
-            : width >= 600
-                ? 3
-                : 2;
-    final cardAspectRatio = width >= 600 ? 0.72 : 0.65;
+    final cols = Responsive.gridColumns(context, minItemWidth: 160);
+    final cardAspectRatio = Responsive.cardAspectRatio(context);
+    final isSmall = Responsive.isSmallMobile(context);
 
     return Obx(() {
       final flashDeals = productCtrl.products
@@ -58,29 +53,29 @@ class HomeScreen extends StatelessWidget {
             SliverAppBar(
               pinned: true,
               backgroundColor: ShopColors.primary,
-              titleSpacing: 12,
+              titleSpacing: isSmall ? 8 : 12,
               title: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(5),
+                    padding: EdgeInsets.all(isSmall ? 4 : 5),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.storefront_rounded,
                       color: Colors.white,
-                      size: 19,
+                      size: isSmall ? 17 : 19,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: isSmall ? 6 : 8),
+                  Text(
                     'ShopHub',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.2,
-                      fontSize: 19,
+                      fontSize: isSmall ? 17 : 19,
                       color: Colors.white,
                     ),
                   ),
@@ -89,6 +84,8 @@ class HomeScreen extends StatelessWidget {
               actions: [
                 IconButton(
                   tooltip: 'Wishlist',
+                  visualDensity: isSmall ? VisualDensity.compact : null,
+                  padding: isSmall ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
                   onPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.wishlist),
                   icon: Badge(
@@ -102,6 +99,8 @@ class HomeScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'ShopBot AI Support',
+                  visualDensity: isSmall ? VisualDensity.compact : null,
+                  padding: isSmall ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
                   onPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.chatbot),
                   icon: const Icon(
@@ -111,6 +110,8 @@ class HomeScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Cart',
+                  visualDensity: isSmall ? VisualDensity.compact : null,
+                  padding: isSmall ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
                   onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
                   icon: Badge(
                     isLabelVisible: cartCtrl.cartCount > 0,
@@ -123,6 +124,8 @@ class HomeScreen extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'My Account',
+                  visualDensity: isSmall ? VisualDensity.compact : null,
+                  padding: isSmall ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
                   onPressed: () {
                     if (onSeeAccount != null) {
                       onSeeAccount!();
@@ -135,7 +138,7 @@ class HomeScreen extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: isSmall ? 2 : 4),
               ],
               bottom: const PreferredSize(
                 preferredSize: Size.fromHeight(58),
@@ -567,12 +570,13 @@ class _FlashDealsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (deals.isEmpty) return const SizedBox.shrink();
+    final isSmall = Responsive.isSmallMobile(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 10, 8),
+          padding: EdgeInsets.fromLTRB(isSmall ? 10 : 16, 20, isSmall ? 8 : 10, 8),
           child: Row(
             children: [
               Container(
@@ -587,32 +591,35 @@ class _FlashDealsSection extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: isSmall ? 5 : 8),
+              Text(
                 'Flash Deals',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: isSmall ? 16 : 18,
                   fontWeight: FontWeight.w900,
                   color: ShopColors.text,
                   letterSpacing: -0.2,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: isSmall ? 5 : 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmall ? 6 : 8,
+                  vertical: 2.5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.red.shade200),
                 ),
-                child: const Row(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.timer_outlined, size: 12, color: Colors.red),
-                    SizedBox(width: 4),
+                    const Icon(Icons.timer_outlined, size: 12, color: Colors.red),
+                    const SizedBox(width: 4),
                     Text(
-                      'Ends in 08:45:20',
-                      style: TextStyle(
+                      isSmall ? '08:45:20' : 'Ends in 08:45:20',
+                      style: const TextStyle(
                         color: Colors.red,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -623,6 +630,13 @@ class _FlashDealsSection extends StatelessWidget {
               ),
               const Spacer(),
               TextButton(
+                style: isSmall
+                    ? TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      )
+                    : null,
                 onPressed: () {
                   final pCtrl = Get.find<ProductController>();
                   pCtrl.setFilters(sort: 'discount');

@@ -6,6 +6,7 @@ import '../controllers/auth_controller.dart';
 import '../core/widgets/app_button.dart';
 import '../core/widgets/app_text_field.dart';
 import '../theme/colors.dart';
+import '../utils/responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -220,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Form(
             key: _form,
             child: ListView(
-              padding: const EdgeInsets.all(20),
+              padding: Responsive.screenPadding(context, horizontal: 20, vertical: 20),
               children: [
                 const Text(
                   'ShopHub',

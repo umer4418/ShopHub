@@ -9,6 +9,7 @@ import '../models/order.dart';
 import '../services/receipt_service.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 
 /// ReceiptScreen
 /// Displays a high-fidelity, black-and-white payment receipt on screen,
@@ -166,6 +167,8 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 
     final cleanId = order.id.replaceAll('#', '');
 
+    final isSmall = Responsive.isSmallMobile(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
@@ -199,7 +202,10 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmall ? 8 : 16,
+            vertical: isSmall ? 8 : 12,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -220,7 +226,10 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: EdgeInsets.symmetric(
+                      vertical: isSmall ? 10 : 13,
+                      horizontal: isSmall ? 6 : 10,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -234,18 +243,18 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.download_rounded, size: 18),
+                      : Icon(Icons.download_rounded, size: isSmall ? 15 : 18),
                   label: Text(
-                    _isSaving ? 'Saving...' : 'Download PDF',
-                    style: const TextStyle(
-                      fontSize: 13,
+                    _isSaving ? 'Saving...' : (isSmall ? 'Download' : 'Download PDF'),
+                    style: TextStyle(
+                      fontSize: isSmall ? 11 : 13,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   onPressed: _isSaving ? null : () => _handleSaveReceipt(order),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: isSmall ? 5 : 8),
 
               // Share Receipt Button
               Expanded(
@@ -255,23 +264,26 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.black87,
                     side: const BorderSide(color: Colors.black38),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: EdgeInsets.symmetric(
+                      vertical: isSmall ? 10 : 13,
+                      horizontal: isSmall ? 4 : 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(Icons.share_outlined, size: 16),
-                  label: const Text(
+                  icon: Icon(Icons.share_outlined, size: isSmall ? 14 : 16),
+                  label: Text(
                     'Share',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: isSmall ? 11 : 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   onPressed: () => _handleShareReceipt(order),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: isSmall ? 5 : 8),
 
               // Print Button
               Expanded(
@@ -281,16 +293,19 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.black87,
                     side: const BorderSide(color: Colors.black38),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: EdgeInsets.symmetric(
+                      vertical: isSmall ? 10 : 13,
+                      horizontal: isSmall ? 4 : 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(Icons.print_outlined, size: 16),
-                  label: const Text(
+                  icon: Icon(Icons.print_outlined, size: isSmall ? 14 : 16),
+                  label: Text(
                     'Print',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: isSmall ? 11 : 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -302,7 +317,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: Responsive.screenPadding(context, horizontal: 16, vertical: 20),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 640),
@@ -389,6 +404,11 @@ class _ReceiptPaperView extends StatelessWidget {
         ? order.stripePaymentId!.trim()
         : 'Stripe Confirmed (Ref #${order.id})';
 
+    final isSmall = Responsive.isSmallMobile(context);
+    final isMobile = Responsive.isMobile(context);
+    final hPadding = isSmall ? 12.0 : (isMobile ? 18.0 : 28.0);
+    final vPadding = isSmall ? 16.0 : (isMobile ? 22.0 : 28.0);
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -402,7 +422,7 @@ class _ReceiptPaperView extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+      padding: EdgeInsets.symmetric(horizontal: hPadding, vertical: vPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

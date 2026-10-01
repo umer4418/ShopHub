@@ -6,6 +6,7 @@ import '../controllers/product_controller.dart';
 import '../controllers/wishlist_controller.dart';
 import '../models/product.dart';
 import '../theme/colors.dart';
+import '../utils/responsive.dart';
 import '../widgets/product_card.dart';
 
 class ProductsScreen extends StatelessWidget {
@@ -77,12 +78,16 @@ class ProductsScreen extends StatelessWidget {
               child: items.isEmpty
                   ? const Center(child: Text('No products match your filters.'))
                   : GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
+                      padding: Responsive.screenPadding(context, horizontal: 12, vertical: 12),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: Responsive.gridColumns(context, minItemWidth: 160),
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: 0.62,
+                        childAspectRatio: Responsive.cardAspectRatio(
+                          context,
+                          smallMobile: 0.60,
+                          mobile: 0.62,
+                        ),
                       ),
                       itemCount: items.length,
                       itemBuilder: (_, i) =>

@@ -8,6 +8,7 @@ import '../models/order.dart';
 import '../services/receipt_service.dart';
 import '../theme/colors.dart';
 import '../utils/money.dart';
+import '../utils/responsive.dart';
 
 class OrderConfirmationScreen extends StatelessWidget {
   const OrderConfirmationScreen({super.key});
@@ -32,10 +33,15 @@ class OrderConfirmationScreen extends StatelessWidget {
 
       final date = DateFormat('dd MMM yyyy, hh:mm a').format(order.createdAt);
 
+      final isSmall = Responsive.isSmallMobile(context);
+
       return Scaffold(
         appBar: AppBar(title: const Text('Order confirmation')),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Responsive.maxMobileContentWidth),
+            child: ListView(
+              padding: Responsive.screenPadding(context, horizontal: 16, vertical: 16),
           children: [
             Container(
               padding: const EdgeInsets.all(20),
@@ -196,14 +202,19 @@ class OrderConfirmationScreen extends StatelessWidget {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.black87,
                               side: const BorderSide(color: Colors.black26),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: isSmall ? 4 : 8,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                             icon: const Icon(Icons.download_rounded, size: 16),
-                            label: const Text('Save / Download',
-                                style: TextStyle(fontSize: 12)),
+                            label: Text(
+                              isSmall ? 'Download' : 'Save / Download',
+                              style: TextStyle(fontSize: isSmall ? 11 : 12),
+                            ),
                             onPressed: () async {
                               final path = await ReceiptService.to
                                   .saveReceiptToFile(order);
@@ -220,21 +231,26 @@ class OrderConfirmationScreen extends StatelessWidget {
                             },
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: isSmall ? 6 : 8),
                         Expanded(
                           child: OutlinedButton.icon(
                             key: const ValueKey('share_receipt_button'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.black87,
                               side: const BorderSide(color: Colors.black26),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              padding: EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: isSmall ? 4 : 8,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                             icon: const Icon(Icons.share_outlined, size: 16),
-                            label: const Text('Share Receipt',
-                                style: TextStyle(fontSize: 12)),
+                            label: Text(
+                              isSmall ? 'Share' : 'Share Receipt',
+                              style: TextStyle(fontSize: isSmall ? 11 : 12),
+                            ),
                             onPressed: () =>
                                 ReceiptService.to.shareReceipt(order),
                           ),
@@ -253,7 +269,9 @@ class OrderConfirmationScreen extends StatelessWidget {
             ),
           ],
         ),
-      );
+      ),
+    ),
+  );
     });
   }
 }

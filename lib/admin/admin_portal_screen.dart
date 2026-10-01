@@ -523,21 +523,24 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                   ),
                 ],
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _periodButton('All Time', 'all'),
-                    _periodButton('This Month', 'month'),
-                    _periodButton('This Week', 'week'),
-                    _periodButton('Today', 'today'),
-                  ],
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _periodButton('All Time', 'all'),
+                      _periodButton('This Month', 'month'),
+                      _periodButton('This Week', 'week'),
+                      _periodButton('Today', 'today'),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -548,13 +551,16 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 900;
+              final isSmall = constraints.maxWidth < 400;
+              final crossAxisCount = isWide ? 4 : (isSmall ? 1 : 2);
+              final childAspectRatio = isWide ? 1.25 : (isSmall ? 2.8 : 1.15);
               return GridView.count(
-                crossAxisCount: isWide ? 4 : 2,
+                crossAxisCount: crossAxisCount,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: isWide ? 1.25 : 1.35,
+                childAspectRatio: childAspectRatio,
                 children: [
                   _kpiCard(
                     title: 'Total Earnings',

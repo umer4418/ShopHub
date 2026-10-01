@@ -19,7 +19,10 @@ class AdminCategoriesScreen extends StatelessWidget {
         onPressed: () => _edit(context, productCtrl, null),
         child: const Icon(Icons.add),
       ),
-      body: Obx(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Obx(
         () => ListView(
           children: productCtrl.categories
               .map(
@@ -42,9 +45,11 @@ class AdminCategoriesScreen extends StatelessWidget {
                 ),
               )
               .toList(),
+          ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Future<void> _edit(

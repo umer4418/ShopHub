@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../app/routes/app_routes.dart';
 import '../controllers/product_controller.dart';
 import '../theme/colors.dart';
+import '../utils/responsive.dart';
 
 class PromoCampaign {
   final String tag;
@@ -136,8 +137,13 @@ class _HomePromoCarouselState extends State<HomePromoCarousel> {
   @override
   Widget build(BuildContext context) {
     final campaigns = HomePromoCarousel.campaigns;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final cardHeight = screenWidth >= 600 ? 144.0 : 140.0;
+    final cardHeight = Responsive.value<double>(
+      context,
+      smallMobile: 132.0,
+      mobile: 140.0,
+      tablet: 150.0,
+      desktop: 154.0,
+    );
 
     return Column(
       children: [
@@ -210,160 +216,170 @@ class _HomePromoCarouselState extends State<HomePromoCarousel> {
                             ),
 
                             // Main Card Content
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 10, 14, 10),
-                              child: Row(
-                                children: [
-                                  // Left Text Content
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        // Badge / Tag Pill
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2.5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.25),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: Colors.white.withValues(alpha: 0.3),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            c.tag,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w800,
-                                              letterSpacing: 0.3,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-
-                                        // Discount Headline
-                                        Text(
-                                          c.badge,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: -0.2,
-                                            height: 1.1,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-
-                                        // Supporting Text
-                                        Text(
-                                          c.subtitle,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(alpha: 0.92),
-                                            fontSize: 11,
-                                            height: 1.2,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-
-                                        // CTA Button
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 5.5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(20),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.15),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
+                            Builder(
+                              builder: (context) {
+                                final isSmall = Responsive.isSmallMobile(context);
+                                return Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    isSmall ? 12 : 16,
+                                    isSmall ? 8 : 10,
+                                    isSmall ? 10 : 14,
+                                    isSmall ? 8 : 10,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Left Text Content
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Badge / Tag Pill
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: isSmall ? 6 : 8,
+                                                vertical: 2,
                                               ),
-                                            ],
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                c.cta,
-                                                style: TextStyle(
-                                                  color: c.gradient.first,
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 11,
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.25),
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: Colors.white.withValues(alpha: 0.3),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                              child: Text(
+                                                c.tag,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: isSmall ? 8.5 : 9.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  letterSpacing: 0.3,
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(height: isSmall ? 2 : 4),
 
-                                  const SizedBox(width: 8),
+                                            // Discount Headline
+                                            Text(
+                                              c.badge,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: isSmall ? 16 : 18,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: -0.2,
+                                                height: 1.1,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
 
-                                  // Right Decorative Composition
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        width: 72,
-                                        height: 72,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Colors.white.withValues(alpha: 0.18),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.35),
-                                            width: 1.5,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.08),
-                                              blurRadius: 8,
+                                            // Supporting Text
+                                            Text(
+                                              c.subtitle,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Colors.white.withValues(alpha: 0.92),
+                                                fontSize: isSmall ? 10 : 11,
+                                                height: 1.15,
+                                              ),
+                                            ),
+                                            SizedBox(height: isSmall ? 5 : 8),
+
+                                            // CTA Button
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: isSmall ? 9 : 12,
+                                                vertical: isSmall ? 4 : 5.5,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(20),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withValues(alpha: 0.15),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    c.cta,
+                                                    style: TextStyle(
+                                                      color: c.gradient.first,
+                                                      fontWeight: FontWeight.w800,
+                                                      fontSize: isSmall ? 10 : 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ],
                                         ),
-                                        child: Center(
-                                          child: Icon(
-                                            c.icon,
-                                            size: 36,
-                                            color: Colors.white,
-                                          ),
-                                        ),
                                       ),
-                                      if (c.discountPill != null) ...[
-                                        const SizedBox(height: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 7,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.22),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            c.discountPill!,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 0.5,
+
+                                      SizedBox(width: isSmall ? 6 : 8),
+
+                                      // Right Decorative Composition
+                                      Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            width: isSmall ? 56 : 72,
+                                            height: isSmall ? 56 : 72,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: Colors.white.withValues(alpha: 0.18),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(alpha: 0.35),
+                                                width: 1.5,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.08),
+                                                  blurRadius: 8,
+                                                ),
+                                              ],
+                                            ),
+                                            child: Center(
+                                              child: Icon(
+                                                c.icon,
+                                                size: isSmall ? 28 : 36,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                          if (c.discountPill != null) ...[
+                                            SizedBox(height: isSmall ? 4 : 6),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: isSmall ? 6 : 7,
+                                                vertical: isSmall ? 1.5 : 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.22),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                c.discountPill!,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: isSmall ? 9 : 10,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
                           ],
                         ),

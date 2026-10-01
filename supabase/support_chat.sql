@@ -22,6 +22,8 @@ ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS customer_name 
 ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS customer_email TEXT;
 ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS order_id TEXT REFERENCES public.orders(id) ON DELETE SET NULL;
 ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';
+ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS subject TEXT;
+ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS last_message TEXT;
 ALTER TABLE public.support_conversations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
 
@@ -87,7 +89,8 @@ DROP POLICY IF EXISTS "Allow insert on support_messages" ON public.support_messa
 DROP POLICY IF EXISTS "Allow update on support_messages" ON public.support_messages;
 
 -- 6. Resilient RLS Policies for support_conversations
--- Allows both authenticated & anon clients to read, insert, and update conversations
+-- Allows both authenticated & anon clients to read, insert, update, and delete conversations
+DROP POLICY IF EXISTS "Allow delete on support_conversations" ON public.support_conversations;
 CREATE POLICY "Allow select on support_conversations"
   ON public.support_conversations FOR SELECT
   USING (true);
@@ -100,8 +103,13 @@ CREATE POLICY "Allow update on support_conversations"
   ON public.support_conversations FOR UPDATE
   USING (true);
 
+CREATE POLICY "Allow delete on support_conversations"
+  ON public.support_conversations FOR DELETE
+  USING (true);
+
 -- 7. Resilient RLS Policies for support_messages
 -- Allows bidirectional messaging between Customer and Admin without foreign key or JWT drops
+DROP POLICY IF EXISTS "Allow delete on support_messages" ON public.support_messages;
 CREATE POLICY "Allow select on support_messages"
   ON public.support_messages FOR SELECT
   USING (true);
@@ -112,6 +120,10 @@ CREATE POLICY "Allow insert on support_messages"
 
 CREATE POLICY "Allow update on support_messages"
   ON public.support_messages FOR UPDATE
+  USING (true);
+
+CREATE POLICY "Allow delete on support_messages"
+  ON public.support_messages FOR DELETE
   USING (true);
 
 -- 8. Customer Order Completion RLS Policy on orders
