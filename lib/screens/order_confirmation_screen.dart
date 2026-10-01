@@ -37,11 +37,19 @@ class OrderConfirmationScreen extends StatelessWidget {
 
       return Scaffold(
         appBar: AppBar(title: const Text('Order confirmation')),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: Responsive.maxMobileContentWidth),
-            child: ListView(
-              padding: Responsive.screenPadding(context, horizontal: 16, vertical: 16),
+        body: SafeArea(
+          top: false,
+          bottom: true,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: Responsive.maxMobileContentWidth),
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  isSmall ? 12 : 16,
+                  16,
+                  isSmall ? 12 : 16,
+                  12,
+                ),
           children: [
             Container(
               padding: const EdgeInsets.all(20),
@@ -262,16 +270,41 @@ class OrderConfirmationScreen extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                  context, AppRoutes.home, (_) => false),
-              child: const Text('Continue shopping'),
+            SizedBox(
+              width: double.infinity,
+              height: isSmall ? 48 : 52,
+              child: ElevatedButton.icon(
+                key: const ValueKey('continue_shopping_button'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ShopColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.home,
+                  (_) => false,
+                ),
+                icon: const Icon(Icons.shopping_bag_outlined, size: 20),
+                label: Text(
+                  'Continue shopping',
+                  style: TextStyle(
+                    fontSize: isSmall ? 14 : 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       ),
     ),
-  );
+  ),
+);
     });
   }
 }

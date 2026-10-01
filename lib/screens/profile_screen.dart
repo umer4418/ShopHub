@@ -469,8 +469,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     key: ValueKey('order_receipt_button_${o.id}'),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Colors.black87,
-                                      side: const BorderSide(color: Colors.black38),
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                                      side: const BorderSide(color: Colors.black26),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                                      visualDensity: VisualDensity.compact,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -498,17 +499,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(0xFF059669),
                                         foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 9),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
+                                        visualDensity: VisualDensity.compact,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
                                       icon: const Icon(Icons.check_circle_outline, size: 16),
-                                      label: const Text(
-                                        '✓ Mark as Completed',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
+                                      label: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          '✓ Mark as Completed',
+                                          maxLines: 1,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () async {
@@ -533,17 +539,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     child: OutlinedButton.icon(
                                       key: ValueKey('view_order_${o.id}'),
                                       style: OutlinedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(vertical: 9),
+                                        foregroundColor: Colors.black87,
+                                        side: const BorderSide(color: Colors.black26),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
+                                        visualDensity: VisualDensity.compact,
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
                                       icon: const Icon(Icons.receipt_outlined, size: 16),
-                                      label: const Text(
-                                        'View Order',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                      label: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          'View Order',
+                                          maxLines: 1,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () => Navigator.pushNamed(
@@ -560,18 +573,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     key: ValueKey('contact_support_${o.id}'),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: ShopColors.primary,
-                                      side: const BorderSide(color: ShopColors.primary),
-                                      padding: const EdgeInsets.symmetric(vertical: 9),
+                                      backgroundColor: ShopColors.primary.withValues(alpha: 0.04),
+                                      side: const BorderSide(color: ShopColors.primary, width: 1.2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
+                                      visualDensity: VisualDensity.compact,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    icon: const Icon(Icons.chat_outlined, size: 16),
-                                    label: const Text(
-                                      '💬 Contact Support',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                    icon: const Icon(
+                                      Icons.support_agent_rounded,
+                                      size: 16,
+                                      color: ShopColors.primary,
+                                    ),
+                                    label: const FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        'Contact Support',
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: ShopColors.primary,
+                                        ),
                                       ),
                                     ),
                                     onPressed: () => Navigator.pushNamed(

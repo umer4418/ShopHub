@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/routes/app_routes.dart';
 import '../theme/colors.dart';
+import '../utils/responsive.dart';
 
 /// ShopBot Floating Action Button
 /// A prominent, stylish floating AI assistant button that opens the ShopBot chat.
@@ -49,6 +50,11 @@ class _ShopBotFabState extends State<ShopBotFab>
 
   @override
   Widget build(BuildContext context) {
+    final isSmall = Responsive.isSmallMobile(context);
+    final horizontalPad = widget.compact ? 12.0 : (isSmall ? 12.0 : 16.0);
+    final verticalPad = isSmall ? 9.0 : 12.0;
+    final iconSize = isSmall ? 20.0 : 24.0;
+
     return AnimatedBuilder(
       animation: _scaleAnim,
       builder: (context, child) {
@@ -67,8 +73,8 @@ class _ShopBotFabState extends State<ShopBotFab>
           onTap: () => _openChat(context),
           child: Container(
             padding: EdgeInsets.symmetric(
-              horizontal: widget.compact ? 12 : 16,
-              vertical: 12,
+              horizontal: horizontalPad,
+              vertical: verticalPad,
             ),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -94,10 +100,10 @@ class _ShopBotFabState extends State<ShopBotFab>
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.smart_toy_rounded,
                       color: Colors.white,
-                      size: 24,
+                      size: iconSize,
                     ),
                     Positioned(
                       top: -2,
@@ -117,8 +123,8 @@ class _ShopBotFabState extends State<ShopBotFab>
                   ],
                 ),
                 if (!widget.compact) ...[
-                  const SizedBox(width: 8),
-                  const Column(
+                  SizedBox(width: isSmall ? 6 : 8),
+                  Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -130,23 +136,23 @@ class _ShopBotFabState extends State<ShopBotFab>
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
-                              fontSize: 13,
+                              fontSize: isSmall ? 12 : 13,
                               letterSpacing: 0.2,
                             ),
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Icon(
                             Icons.auto_awesome,
                             color: Colors.amberAccent,
-                            size: 13,
+                            size: isSmall ? 11 : 13,
                           ),
                         ],
                       ),
                       Text(
-                        'Ask about orders & delivery',
+                        isSmall ? 'AI Assistant' : 'Ask about orders & delivery',
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 10,
+                          fontSize: isSmall ? 9 : 10,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

@@ -7,6 +7,7 @@ import '../controllers/auth_controller.dart';
 import '../controllers/chatbot_controller.dart';
 import '../models/chat_message.dart';
 import '../theme/colors.dart';
+import '../utils/responsive.dart';
 
 /// Chatbot Screen
 /// Dedicated interactive chat view for ShopBot AI Assistant.
@@ -101,6 +102,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isSmall = Responsive.isSmallMobile(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F8),
       appBar: AppBar(
@@ -109,6 +112,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ShopColors.text),
           onPressed: () => Navigator.pop(context),
+          visualDensity: isSmall ? VisualDensity.compact : null,
+          padding: isSmall ? const EdgeInsets.all(4) : null,
         ),
         titleSpacing: 0,
         title: Row(
@@ -116,21 +121,33 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: ShopColors.primarySoft,
-                  child: const Icon(
-                    Icons.smart_toy_rounded,
-                    color: ShopColors.primary,
-                    size: 24,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: ShopColors.primary.withValues(alpha: 0.15),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: isSmall ? 18 : 21,
+                    backgroundColor: ShopColors.primarySoft,
+                    child: Icon(
+                      Icons.smart_toy_rounded,
+                      color: ShopColors.primary,
+                      size: isSmall ? 20 : 24,
+                    ),
                   ),
                 ),
                 Positioned(
                   right: 0,
                   bottom: 0,
                   child: Container(
-                    width: 10,
-                    height: 10,
+                    width: isSmall ? 9 : 11,
+                    height: isSmall ? 9 : 11,
                     decoration: BoxDecoration(
                       color: const Color(0xFF10B981),
                       shape: BoxShape.circle,
@@ -140,38 +157,99 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
               ],
             ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'ShopBot AI',
-                      style: TextStyle(
-                        color: ShopColors.text,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
+            SizedBox(width: isSmall ? 8 : 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'ShopBot',
+                          style: TextStyle(
+                            color: ShopColors.text,
+                            fontWeight: FontWeight.w900,
+                            fontSize: isSmall ? 15 : 17,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(
-                      Icons.auto_awesome,
-                      color: Colors.amber,
-                      size: 14,
-                    ),
-                  ],
-                ),
-                Text(
-                  'ShopHub App & Orders AI Assistant',
-                  style: TextStyle(
-                    color: ShopColors.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                      const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF6A00), Color(0xFFFF9500)],
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF6A00).withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              color: Colors.white,
+                              size: 10,
+                            ),
+                            SizedBox(width: 2),
+                            Text(
+                              'AI',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 1),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          isSmall ? 'Online 24/7' : 'AI Shopping Assistant • Online',
+                          style: const TextStyle(
+                            color: Color(0xFF10B981),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -179,6 +257,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           IconButton(
             tooltip: 'Live Admin Support',
             icon: const Icon(Icons.support_agent_rounded, color: ShopColors.primary),
+            visualDensity: isSmall ? VisualDensity.compact : null,
+            padding: isSmall ? const EdgeInsets.all(4) : null,
             onPressed: () {
               Navigator.pushNamed(context, AppRoutes.supportChat);
             },
@@ -186,6 +266,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           IconButton(
             tooltip: 'Clear conversation',
             icon: const Icon(Icons.delete_sweep_outlined, color: ShopColors.muted),
+            visualDensity: isSmall ? VisualDensity.compact : null,
+            padding: isSmall ? const EdgeInsets.all(4) : null,
             onPressed: _confirmClearChat,
           ),
         ],

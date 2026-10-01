@@ -317,7 +317,11 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: Responsive.screenPadding(context, horizontal: 16, vertical: 20),
+        padding: Responsive.screenPadding(
+          context,
+          horizontal: Responsive.isSmallMobile(context) ? 8 : 12,
+          vertical: 16,
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 640),
@@ -406,8 +410,8 @@ class _ReceiptPaperView extends StatelessWidget {
 
     final isSmall = Responsive.isSmallMobile(context);
     final isMobile = Responsive.isMobile(context);
-    final hPadding = isSmall ? 12.0 : (isMobile ? 18.0 : 28.0);
-    final vPadding = isSmall ? 16.0 : (isMobile ? 22.0 : 28.0);
+    final hPadding = isSmall ? 10.0 : (isMobile ? 14.0 : 24.0);
+    final vPadding = isSmall ? 14.0 : (isMobile ? 18.0 : 26.0);
 
     return Container(
       decoration: BoxDecoration(
@@ -459,15 +463,22 @@ class _ReceiptPaperView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'PAYMENT RECEIPT',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  color: Colors.black,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: const Text(
+                    'PAYMENT RECEIPT',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      color: Colors.black,
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -668,24 +679,32 @@ class _ReceiptPaperView extends StatelessWidget {
                         ),
                         Expanded(
                           flex: 3,
-                          child: Text(
-                            pkr.format(item.product.price),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.black87,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              pkr.format(item.product.price),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.black87,
+                              ),
                             ),
                           ),
                         ),
                         Expanded(
                           flex: 3,
-                          child: Text(
-                            pkr.format(item.lineTotal),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              pkr.format(item.lineTotal),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
                             ),
                           ),
                         ),
@@ -699,76 +718,86 @@ class _ReceiptPaperView extends StatelessWidget {
           const SizedBox(height: 14),
 
           // 5. FINANCIAL BREAKDOWN & TOTAL
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Container(
-                constraints: const BoxConstraints(minWidth: 260, maxWidth: 360),
-                child: Column(
-                  children: [
-                    _summaryLine('Items Subtotal', pkr.format(rawSubtotal)),
-                    if (discount > 0) ...[
-                      const SizedBox(height: 4),
-                      _summaryLine(
-                        'Discount${order.couponCode != null ? ' (${order.couponCode})' : ''}',
-                        '- ${pkr.format(discount)}',
-                      ),
-                    ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Column(
+                children: [
+                  _summaryLine('Items Subtotal', pkr.format(rawSubtotal)),
+                  if (discount > 0) ...[
                     const SizedBox(height: 4),
                     _summaryLine(
-                      'Delivery Charges',
-                      delivery > 0 ? pkr.format(delivery) : 'FREE (Rs. 0)',
+                      'Discount${order.couponCode != null ? ' (${order.couponCode})' : ''}',
+                      '- ${pkr.format(discount)}',
                     ),
-                    const SizedBox(height: 8),
-                    const Divider(height: 1, thickness: 1.5, color: Colors.black),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
+                  ],
+                  const SizedBox(height: 4),
+                  _summaryLine(
+                    'Delivery Charges',
+                    delivery > 0 ? pkr.format(delivery) : 'FREE (Rs. 0)',
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1, thickness: 1.5, color: Colors.black),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'TOTAL PAID',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
                           child: Text(
-                            'TOTAL PAID',
-                            style: TextStyle(
-                              fontSize: 13,
+                            pkr.format(order.total),
+                            style: const TextStyle(
+                              fontSize: 15,
                               fontWeight: FontWeight.w900,
                               color: Colors.black,
                             ),
                           ),
                         ),
-                        Text(
-                          pkr.format(order.total),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black,
-                          ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Expanded(
+                        child: Text(
+                          'Payment Status',
+                          style: TextStyle(fontSize: 10, color: Colors.black87),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Expanded(
+                      ),
+                      SizedBox(width: 8),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
                           child: Text(
-                            'Payment Status',
-                            style: TextStyle(fontSize: 10, color: Colors.black87),
+                            'Paid (Stripe Verified)',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
+                            ),
                           ),
                         ),
-                        Text(
-                          'Paid (Stripe Verified)',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -864,12 +893,18 @@ class _ReceiptPaperView extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
           ),
         ),
       ],

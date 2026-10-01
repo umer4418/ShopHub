@@ -26,13 +26,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final id = (ModalRoute.of(context)?.settings.arguments ?? Get.arguments) as String;
+    final id = (ModalRoute.of(context)?.settings.arguments ?? Get.arguments) as String?;
     final productCtrl = Get.find<ProductController>();
     final cartCtrl = Get.find<CartController>();
     final wishlistCtrl = Get.find<WishlistController>();
 
     return Obx(() {
-      final product = productCtrl.products.firstWhere((p) => p.id == id);
+      final product = (id != null ? productCtrl.productById(id) : null) ??
+          (id != null ? productCtrl.products.firstWhereOrNull((p) => p.id == id) : null);
+
+      if (product == null) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(title: const Text('Product details')),
+          body: const Center(
+            child: Text(
+              'Product not found',
+              style: TextStyle(fontSize: 16, color: ShopColors.muted),
+            ),
+          ),
+        );
+      }
+
       final wished = wishlistCtrl.inWishlist(product.id);
       final category = productCtrl.categoryById(product.categoryId);
 
@@ -74,7 +89,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ],
         ),
-        body: Center(
+        body: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: Responsive.maxTabletContentWidth),
             child: ListView(
@@ -136,8 +152,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       StarRating(
                           rating: product.rating, count: product.reviewCount, size: isSmall ? 16 : 18),
                       const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 10,
+                        runSpacing: 6,
                         children: [
                           Text(
                             pkr.format(product.price),
@@ -147,7 +165,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               color: ShopColors.primary,
                             ),
                           ),
-                          const SizedBox(width: 10),
                           if (product.discountPercent > 0)
                             Text(
                               pkr.format(product.originalPrice),
@@ -156,7 +173,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 decoration: TextDecoration.lineThrough,
                               ),
                             ),
-                          const SizedBox(width: 10),
                           if (product.discountPercent > 0)
                             Container(
                               padding:
@@ -205,51 +221,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
         bottomNavigationBar: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: Responsive.maxTabletContentWidth),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  isSmall ? 10 : 16,
-                  8,
-                  isSmall ? 10 : 16,
-                  12,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  offset: const Offset(0, -2),
+                  blurRadius: 8,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: isSmall
-                            ? OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                              )
-                            : null,
-                        onPressed: () {
-                          cartCtrl.addToCart(product, qty: qty);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Added to cart')),
-                          );
-                        },
-                        icon: Icon(Icons.add_shopping_cart, size: isSmall ? 18 : 20),
-                        label: Text('Add to Cart', style: TextStyle(fontSize: isSmall ? 12 : 14)),
+              ],
+            ),
+            child: Center(
+              heightFactor: 1.0,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: Responsive.maxTabletContentWidth),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isSmall ? 10 : 16,
+                    8,
+                    isSmall ? 10 : 16,
+                    12,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: isSmall
+                              ? OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                                )
+                              : null,
+                          onPressed: () {
+                            cartCtrl.addToCart(product, qty: qty);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Added to cart')),
+                            );
+                          },
+                          icon: Icon(Icons.add_shopping_cart, size: isSmall ? 18 : 20),
+                          label: Text('Add to Cart', style: TextStyle(fontSize: isSmall ? 12 : 14)),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: isSmall ? 6 : 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: isSmall
-                            ? ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                              )
-                            : null,
-                        onPressed: () {
-                          cartCtrl.addToCart(product, qty: qty);
-                          Navigator.pushNamed(context, AppRoutes.checkout);
-                        },
-                        child: Text('Buy Now', style: TextStyle(fontSize: isSmall ? 12 : 14)),
+                      SizedBox(width: isSmall ? 6 : 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: isSmall
+                              ? ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                                )
+                              : null,
+                          onPressed: () {
+                            cartCtrl.addToCart(product, qty: qty);
+                            Navigator.pushNamed(context, AppRoutes.checkout);
+                          },
+                          child: Text('Buy Now', style: TextStyle(fontSize: isSmall ? 12 : 14)),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

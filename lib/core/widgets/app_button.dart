@@ -10,6 +10,7 @@ class AppButton extends StatelessWidget {
   final bool isOutlined;
   final IconData? icon;
   final double? width;
+  final double? height;
 
   const AppButton({
     super.key,
@@ -19,6 +20,7 @@ class AppButton extends StatelessWidget {
     this.isOutlined = false,
     this.icon,
     this.width = double.infinity,
+    this.height = 50.0,
   });
 
   @override
@@ -42,9 +44,19 @@ class AppButton extends StatelessWidget {
                 Icon(icon, size: 18),
                 const SizedBox(width: 8),
               ],
-              Text(
-                text,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    text,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      letterSpacing: 0.2,
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
               ),
             ],
           );
@@ -52,6 +64,11 @@ class AppButton extends StatelessWidget {
     final button = isOutlined
         ? OutlinedButton(
             onPressed: isLoading ? null : onPressed,
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: child,
           )
         : ElevatedButton(
@@ -59,13 +76,18 @@ class AppButton extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: ShopColors.primary,
               foregroundColor: Colors.white,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: child,
           );
 
-    if (width != null) {
-      return SizedBox(width: width, child: button);
-    }
-    return button;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: button,
+    );
   }
 }

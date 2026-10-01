@@ -175,15 +175,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
 
+      final isSmall = Responsive.isSmallMobile(context);
+
       return Scaffold(
         appBar: AppBar(title: const Text('Checkout')),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Form(
-              key: _form,
-              child: ListView(
-                padding: Responsive.screenPadding(context, horizontal: 16, vertical: 16),
+        body: SafeArea(
+          top: false,
+          bottom: true,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Form(
+                key: _form,
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    isSmall ? 12 : 16,
+                    16,
+                    isSmall ? 12 : 16,
+                    12,
+                  ),
             children: [
               const Text('Shipping details',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
@@ -474,11 +484,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 onTap: () => setState(() => _payment = 'Stripe'),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               AppButton(
+                key: const ValueKey('place_order_button'),
                 text: _payment == 'Stripe'
                     ? 'Proceed to Pay with Stripe'
                     : 'Place Order (Cash on Delivery)',
+                icon: _payment == 'Stripe'
+                    ? Icons.lock_outline
+                    : Icons.check_circle_outline,
+                height: isSmall ? 48 : 52,
                 isLoading: _isProcessing,
                 onPressed: _isProcessing ? null : () => _handleCheckout(cartCtrl, orderCtrl),
               ),
@@ -487,7 +502,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       ),
     ),
-  );
+  ),
+);
     });
   }
 }

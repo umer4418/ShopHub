@@ -217,6 +217,33 @@ void main() {
       expect(find.byKey(const ValueKey('print_receipt_appbar_action')), findsOneWidget);
     });
 
+    testWidgets('ReceiptScreen renders without overflow on small mobile screens (320px width)',
+        (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          onGenerateRoute: (settings) {
+            return MaterialPageRoute(
+              settings: RouteSettings(
+                name: AppRoutes.receipt,
+                arguments: stripeOrder,
+              ),
+              builder: (_) => const ReceiptScreen(),
+            );
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Receipt #${stripeOrder.id}'), findsOneWidget);
+      expect(find.text('TOTAL PAID'), findsOneWidget);
+      expect(find.byKey(const ValueKey('save_receipt_button')), findsOneWidget);
+    });
+
     testWidgets('ProfileScreen shows Receipt button strictly on Stripe-paid orders',
         (tester) async {
       tester.view.physicalSize = const Size(1080, 1920);
