@@ -7,6 +7,7 @@ import '../core/widgets/category_card.dart';
 import '../models/category.dart';
 import '../theme/colors.dart';
 import '../utils/responsive.dart';
+import '../widgets/shop_search_bar.dart';
 
 /// Available sorting options for categories
 enum CategorySortOption {
@@ -331,234 +332,107 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         backgroundColor: ShopColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(isSmall ? 56 : 58),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              isSmall ? 10 : 14,
+              0,
+              isSmall ? 10 : 14,
+              8,
+            ),
+            child: ShopSearchBar(
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              hintText: 'Search categories...',
+              hasActiveFilters: _hasActiveFilters,
+              onFilterTap: () => _openFilterSheet(context, productCtrl),
+              onClear: _clearSearch,
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val;
+                });
+              },
+            ),
+          ),
+        ),
       ),
       body: Column(
         children: [
-          // ==============================================================
-          // FIXED TOP BAR: SEARCH BAR & FILTER BUTTON
-          // Stays permanently pinned at the top when scrolling down
-          // ==============================================================
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isSmall ? 10 : 16,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: ShopColors.border.withValues(alpha: 0.8)),
+          // Active Filter / Search Query Summary Row
+          Obx(() {
+            final filtered = _filterAndSortCategories(
+              productCtrl.categories,
+              productCtrl,
+            );
+            final isFiltered = _searchQuery.isNotEmpty || _hasActiveFilters;
+
+            if (!isFiltered) {
+              return Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(
+                  isSmall ? 12 : 16,
+                  10,
+                  isSmall ? 12 : 16,
+                  4,
+                ),
+                child: Text(
+                  '${productCtrl.categories.length} Categories',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: ShopColors.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }
+
+            return Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                isSmall ? 12 : 16,
+                8,
+                isSmall ? 12 : 16,
+                6,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    // Search Bar
-                    Expanded(
-                      child: Container(
-                        height: isSmall ? 42 : 46,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: _searchFocus.hasFocus
-                                ? ShopColors.primary
-                                : Colors.transparent,
-                            width: 1.2,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.search_rounded,
-                              color: ShopColors.muted,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchCtrl,
-                                focusNode: _searchFocus,
-                                textInputAction: TextInputAction.search,
-                                style: TextStyle(
-                                  fontSize: isSmall ? 13 : 14,
-                                  color: ShopColors.text,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: isSmall
-                                      ? 'Search...'
-                                      : 'Search categories...',
-                                  hintStyle: TextStyle(
-                                    fontSize: isSmall ? 12.5 : 13.5,
-                                    color: ShopColors.muted,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
-                            ),
-                            if (_searchQuery.isNotEmpty)
-                              GestureDetector(
-                                onTap: _clearSearch,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFE5E7EB),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    size: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _searchQuery.isNotEmpty
+                          ? '${filtered.length} found for "$_searchQuery"'
+                          : '${filtered.length} Categories (${_sortOption.label})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: ShopColors.primaryDark,
+                        fontWeight: FontWeight.w700,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 8),
-
-                    // Filter Button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => _openFilterSheet(context, productCtrl),
-                        child: Container(
-                          height: isSmall ? 42 : 46,
-                          width: isSmall ? 42 : 46,
-                          decoration: BoxDecoration(
-                            color: _hasActiveFilters
-                                ? ShopColors.primary
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _hasActiveFilters
-                                  ? ShopColors.primary
-                                  : ShopColors.border,
-                              width: 1.2,
-                            ),
-                            boxShadow: _hasActiveFilters
-                                ? [
-                                    BoxShadow(
-                                      color: ShopColors.primary
-                                          .withValues(alpha: 0.3),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Icon(
-                                  Icons.tune_rounded,
-                                  size: isSmall ? 19 : 21,
-                                  color: _hasActiveFilters
-                                      ? Colors.white
-                                      : ShopColors.text,
-                                ),
-                                if (_hasActiveFilters)
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
+                  ),
+                  InkWell(
+                    onTap: _resetAllFilters,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
                       ),
-                    ),
-                  ],
-                ),
-
-                // Active Filter / Search Query Summary Row
-                Obx(() {
-                  final filtered = _filterAndSortCategories(
-                    productCtrl.categories,
-                    productCtrl,
-                  );
-                  final isFiltered =
-                      _searchQuery.isNotEmpty || _hasActiveFilters;
-
-                  if (!isFiltered) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8, left: 2, right: 2),
                       child: Text(
-                        '${productCtrl.categories.length} Categories',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: ShopColors.muted,
-                          fontWeight: FontWeight.w600,
+                        'Reset All',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ShopColors.primary,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    );
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _searchQuery.isNotEmpty
-                                ? '${filtered.length} found for "$_searchQuery"'
-                                : '${filtered.length} Categories (${_sortOption.label})',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: ShopColors.primaryDark,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: _resetAllFilters,
-                          borderRadius: BorderRadius.circular(4),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            child: Text(
-                              'Reset All',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: ShopColors.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
-                  );
-                }),
-              ],
-            ),
-          ),
+                  ),
+                ],
+              ),
+            );
+          }),
 
           // ==============================================================
           // SCROLLABLE CATEGORY GRID
