@@ -233,4 +233,91 @@ void main() {
     expect(find.text('ShopHub Admin'), findsWidgets);
     expect(find.text('Ayesha Khan'), findsOneWidget);
   });
+
+  testWidgets('AdminPortalScreen renders smoothly and navigates tabs on mobile device (360x800)',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    authCtrl.setCurrentUser(MockCatalog.admin);
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: AdminPortalScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify Dashboard on Mobile
+    expect(find.text('Executive Store Overview'), findsOneWidget);
+    expect(find.text('Total Earnings'), findsOneWidget);
+
+    // Verify Mobile Bottom Navigation Bar exists
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Dashboard'), findsWidgets);
+    expect(find.text('Orders'), findsWidgets);
+    expect(find.text('Products'), findsWidgets);
+    expect(find.text('Support'), findsWidgets);
+    expect(find.text('More'), findsWidgets);
+
+    // Tap Orders in mobile bottom bar
+    await tester.tap(find.text('Orders').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Orders Management'), findsOneWidget);
+    expect(find.text('Search Order ID or Customer...'), findsOneWidget);
+    // On mobile, order cards are rendered
+    expect(find.text('View Details'), findsWidgets);
+
+    // Tap Products in mobile bottom bar
+    await tester.tap(find.text('Products').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Add New Product'), findsOneWidget);
+    // On mobile, product cards with edit icon are rendered
+    expect(find.byIcon(Icons.edit_outlined), findsWidgets);
+
+    // Tap More in mobile bottom bar to open Drawer
+    await tester.tap(find.text('More').first);
+    await tester.pumpAndSettle();
+
+    // Navigate to Categories from Drawer
+    await tester.tap(find.text('Categories').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Product Categories'), findsOneWidget);
+    expect(find.text('Add Category'), findsOneWidget);
+
+    // Open drawer again and navigate to Coupons
+    final scaffold = find.byType(Scaffold).first;
+    tester.state<ScaffoldState>(scaffold).openDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Coupons & Promos').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Promotions & Coupon Codes'), findsOneWidget);
+    expect(find.text('Create New Coupon'), findsOneWidget);
+
+    // Open drawer again and navigate to Customers & Users
+    tester.state<ScaffoldState>(scaffold).openDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customers & Users').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Registered Customers & Administrators'), findsOneWidget);
+    expect(find.text('Refresh from Supabase'), findsOneWidget);
+
+    // Open drawer again and navigate to Payments
+    tester.state<ScaffoldState>(scaffold).openDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Payments & Subscriptions').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Payment Gateways & Subscription Services'), findsOneWidget);
+    expect(find.text('Stripe Card Payments'), findsOneWidget);
+    expect(find.text('Cash on Delivery (COD)'), findsOneWidget);
+
+    // Open drawer again and navigate to Settings
+    tester.state<ScaffoldState>(scaffold).openDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Store Configuration & Super Admin Settings'), findsOneWidget);
+    expect(find.text('Store Name'), findsOneWidget);
+  });
 }

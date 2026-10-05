@@ -41,15 +41,15 @@ class Responsive {
   /// Returns current [ScreenType] based on available width.
   static ScreenType screenType(BuildContext context) {
     final w = width(context);
-    if (w < smallMobileBreakpoint) return ScreenType.smallMobile;
+    if (w <= smallMobileBreakpoint) return ScreenType.smallMobile;
     if (w < mobileBreakpoint) return ScreenType.mobile;
     if (w < tabletBreakpoint) return ScreenType.tablet;
     return ScreenType.desktop;
   }
 
-  /// Whether the screen is a small phone (< 360px).
+  /// Whether the screen is a small phone (<= 360px).
   static bool isSmallMobile(BuildContext context) =>
-      width(context) < smallMobileBreakpoint;
+      width(context) <= smallMobileBreakpoint;
 
   /// Whether the screen is mobile form-factor (< 600px).
   static bool isMobile(BuildContext context) =>
@@ -95,7 +95,7 @@ class Responsive {
   }) {
     final w = width(context);
     double scale = 1.0;
-    if (w < smallMobileBreakpoint) {
+    if (w <= smallMobileBreakpoint) {
       scale = 0.90;
     } else if (w < 400) {
       scale = 0.96;

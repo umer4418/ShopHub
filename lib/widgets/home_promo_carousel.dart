@@ -230,10 +230,13 @@ class _HomePromoCarouselState extends State<HomePromoCarousel> {
                                     children: [
                                       // Left Text Content
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.min,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
                                           children: [
                                             // Badge / Tag Pill
                                             Container(
@@ -320,6 +323,7 @@ class _HomePromoCarouselState extends State<HomePromoCarousel> {
                                           ],
                                         ),
                                       ),
+                                    ),
 
                                       SizedBox(width: isSmall ? 6 : 8),
 

@@ -240,5 +240,33 @@ void main() {
           gridOnTablet.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
       expect(delegateOnTablet.crossAxisCount, 3);
     });
+
+    testWidgets('Flash Deals section header renders without overflow on narrow mobile screens',
+        (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(createTestHome());
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Flash Deals'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Flash Deals'), findsOneWidget);
+      expect(find.text('View all'), findsWidgets);
+
+      await tester.tap(find.text('View all').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Products Screen'), findsOneWidget);
+    });
   });
 }

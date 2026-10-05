@@ -54,32 +54,36 @@ class HomeScreen extends StatelessWidget {
               pinned: true,
               backgroundColor: ShopColors.primary,
               titleSpacing: isSmall ? 8 : 12,
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(isSmall ? 4 : 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
+              title: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(isSmall ? 4 : 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.storefront_rounded,
+                        color: Colors.white,
+                        size: isSmall ? 17 : 19,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.storefront_rounded,
-                      color: Colors.white,
-                      size: isSmall ? 17 : 19,
+                    SizedBox(width: isSmall ? 6 : 8),
+                    Text(
+                      'ShopHub',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2,
+                        fontSize: isSmall ? 17 : 19,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  SizedBox(width: isSmall ? 6 : 8),
-                  Text(
-                    'ShopHub',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                      fontSize: isSmall ? 17 : 19,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 IconButton(
@@ -579,64 +583,76 @@ class _FlashDealsSection extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(isSmall ? 10 : 16, 20, isSmall ? 8 : 10, 8),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.bolt_rounded,
-                  color: Colors.red,
-                  size: 20,
-                ),
-              ),
-              SizedBox(width: isSmall ? 5 : 8),
-              Text(
-                'Flash Deals',
-                style: TextStyle(
-                  fontSize: isSmall ? 16 : 18,
-                  fontWeight: FontWeight.w900,
-                  color: ShopColors.text,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              SizedBox(width: isSmall ? 5 : 8),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isSmall ? 6 : 8,
-                  vertical: 2.5,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.timer_outlined, size: 12, color: Colors.red),
-                    const SizedBox(width: 4),
-                    Text(
-                      isSmall ? '08:45:20' : 'Ends in 08:45:20',
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.bolt_rounded,
+                          color: Colors.red,
+                          size: 20,
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(width: isSmall ? 5 : 8),
+                      Text(
+                        'Flash Deals',
+                        style: TextStyle(
+                          fontSize: isSmall ? 16 : 18,
+                          fontWeight: FontWeight.w900,
+                          color: ShopColors.text,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      SizedBox(width: isSmall ? 5 : 8),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmall ? 6 : 8,
+                          vertical: 2.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.timer_outlined, size: 12, color: Colors.red),
+                            const SizedBox(width: 4),
+                            Text(
+                              isSmall ? '08:45:20' : 'Ends in 08:45:20',
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 6),
               TextButton(
-                style: isSmall
-                    ? TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      )
-                    : null,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isSmall ? 4 : 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: () {
                   final pCtrl = Get.find<ProductController>();
                   pCtrl.setFilters(sort: 'discount');
